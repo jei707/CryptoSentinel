@@ -15,23 +15,75 @@ SYSTEM OVERVIEW:
   5. Visualization → 5-panel dashboard of insights
 """
 
+import os
+import sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.patches import FancyBboxPatch
-import matplotlib.patches as mpatches
-import streamlit as st
-import plotly.express as px
-import plotly.graph_objects as go
 from scipy.integrate import odeint
-from scipy.optimize import curve_fit
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from statsmodels.tsa.arima.model import ARIMA
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 import warnings
 warnings.filterwarnings("ignore")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MODULE 0: KAGGLE DATASET REFERENCE
+#   Curated Kaggle datasets for COVID-19 / health-related social media analysis
+#   These references can be used later to replace synthetic data with real-world data.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+KAGGLE_DATASET_SUGGESTIONS = [
+    {
+        "topic": "COVID-19 tweets",
+        "title": "COVID-19 Tweets Dataset (over 1 billion)",
+        "url": "https://www.kaggle.com/datasets/lopezbec/covid19-tweets-dataset",
+    },
+    {
+        "topic": "COVID-19 tweets",
+        "title": "Covid-19 Twitter Dataset",
+        "url": "https://www.kaggle.com/datasets/arunavakrchakraborty/covid19-twitter-dataset",
+    },
+    {
+        "topic": "COVID-19 tweets",
+        "title": "COVID-19 : Twitter Dataset Of 100+ Million Tweets",
+        "url": "https://www.kaggle.com/datasets/adarshsng/covid19-twitter-dataset-of-100-million-tweets",
+    },
+    {
+        "topic": "COVID-19 vaccine sentiment",
+        "title": "Covid-19 Vaccine Tweets with Sentiment Annotation",
+        "url": "https://www.kaggle.com/datasets/datasciencetool/covid19-vaccine-tweets-with-sentiment-annotation",
+    },
+    {
+        "topic": "public health social media",
+        "title": "[NeurIPS 2020] Data Science for COVID-19 (DS4C)",
+        "url": "https://www.kaggle.com/datasets/kimjihoo/coronavirusdataset",
+    },
+    {
+        "topic": "public health social media",
+        "title": "Impact of social media on suicide rates",
+        "url": "https://www.kaggle.com/datasets/aadyasingh55/impact-of-social-media-on-suicide-rates",
+    },
+    {
+        "topic": "health news",
+        "title": "COVID-19 Indian News Headlines",
+        "url": "https://www.kaggle.com/datasets/hkapoor/covid19-india-news-headlines-for-nlp",
+    },
+    {
+        "topic": "disease outbreak tweets",
+        "title": "Covid Vaccine Tweets",
+        "url": "https://www.kaggle.com/datasets/kaushiksuresh147/covidvaccine-tweets",
+    },
+]
+
+
+def print_kaggle_dataset_suggestions(limit=8):
+    print("\n► Step 0: Suggested Kaggle dataset references for real-world data integration …")
+    for item in KAGGLE_DATASET_SUGGESTIONS[:limit]:
+        print(f"  - {item['title']}  [{item['topic']}]")
+        print(f"      {item['url']}")
+    print("  (Replace synthetic input with one of these datasets for real health/social media data.)\n")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # MODULE 1: SYNTHETIC DATASET
@@ -558,6 +610,8 @@ def main():
     print("  EpiSentinel — NLP × Computational Science Integration System")
     print("═" * 70 + "\n")
 
+    print_kaggle_dataset_suggestions()
+
     # ── Step 1: Generate / Load Data ──────────────────────────────────────────
     print("► Step 1: Generating synthetic health-sentiment dataset …")
     df = generate_health_social_data(n_days=90)
@@ -627,489 +681,110 @@ def main():
 
     return df, daily_agg, sir_df, forecast_I, metrics
 
-# ==========================
-# STREAMLIT APP
-# ==========================
 
-st.set_page_config(
-
-    page_title="EpiSentinel",
-
-    layout="wide"
-
-)
-
-st.title(
-    "🦠 EpiSentinel"
-)
-
-st.subheader(
-    "NLP-Driven Epidemic Early Warning System"
-)
-
-
-source = st.radio(
-
-    "Choose data source",
-
-    [
-
-        "Generated Data",
-
-        "Upload CSV"
-
-    ]
-
-)
-
-
-uploaded = None
-
-if source=="Upload CSV":
-
-    uploaded = st.file_uploader(
-
-        "Upload CSV",
-
-        type=["csv"]
-
-    )
-
-
-if st.button(
-
-    "Run EpiSentinel"
-
-):
-
-    # -------------------------
-    # DATA
-    # -------------------------
-
-    if uploaded:
-
-        df = pd.read_csv(
-
-            uploaded
-
-        )
-
-        df["date"] = pd.to_datetime(
-
-            df["date"]
-
-        )
-
-        df["day"] = (
-
-            df["date"]
-
-            -
-
-            df["date"].min()
-
-        ).dt.days
-
-        df["phase"]="uploaded"
-
-
-    else:
-
-        df = generate_health_social_data(
-
-            n_days=90
-
-        )
-
-
-    # -------------------------
-    # NLP
-    # -------------------------
-
-    sa = SentimentAnalyzer()
-
-    df = sa.analyze_dataframe(
-
-        df
-
-    )
-
-    daily_agg = sa.aggregate_daily(
-
-        df
-
-    )
-
-
-    # -------------------------
-    # SIR
-    # -------------------------
-
-    sir_model = SIREpidemicModel(
-
-        N=100000
-
-    )
-
-    sir_df = sir_model.simulate(
-
-        daily_agg["mean_adjusted"]
-
-    )
-
-
-    # -------------------------
-    # ARIMA
-    # -------------------------
-
-    split = 40
-
-    I = sir_df["I"].values
-
-
-    arima = ARIMAForecaster()
-
-
-    forecast, ci = arima.fit_and_forecast(
-
-        I[:split],
-
-        len(I)-split
-
-    )
-
-
-    metrics = arima.compute_metrics(
-
-        I[split:],
-
-        forecast
-
-    )
-
-
-    # =========================
-    # METRIC CARDS
-    # =========================
-
-
-    c1,c2,c3,c4 = st.columns(
-
-        4
-
-    )
-
-
-    c1.metric(
-
-        "Peak Infection",
-
-        f"{int(sir_df['I'].max()):,}"
-
-    )
-
-
-    c2.metric(
-
-        "Mean Sentiment",
-
-        f"{daily_agg['mean_adjusted'].mean():.2f}"
-
-    )
-
-
-    c3.metric(
-
-        "Forecast RMSE",
-
-        f"{metrics['RMSE']:.0f}"
-
-    )
-
-
-    c4.metric(
-
-        "Max R₀",
-
-        f"{sir_df['R0'].max():.2f}"
-
-    )
-
-
-    # ======================
-    # ALERT
-    # ======================
-
-
-    if sir_df["R0"].max()>1:
-
-        st.error(
-
-            "⚠ Epidemic Risk Increasing"
-
-        )
-
-    else:
-
-        st.success(
-
-            "✓ Risk Controlled"
-
-        )
-
-
-    tabs = st.tabs(
-
-        [
-
-            "Sentiment",
-
-            "Infections",
-
-            "Forecast",
-
-            "Risk"
-
-        ]
-
-    )
-
-
-    # =====================
-    # TAB 1
-    # =====================
-
-    with tabs[0]:
-
-        fig = px.line(
-
-            daily_agg,
-
-            x="day",
-
-            y="mean_adjusted",
-
-            title="Sentiment Trend"
-
-        )
-
-        st.plotly_chart(
-
-            fig,
-
-            use_container_width=True
-
-        )
-
-
-    # =====================
-    # TAB 2
-    # =====================
-
-    with tabs[1]:
-
-        fig = px.line(
-
-            sir_df,
-
-            x="day",
-
-            y=["S","I","R"],
-
-            title="SIR Simulation"
-
-        )
-
-        st.plotly_chart(
-
-            fig,
-
-            use_container_width=True
-
-        )
-
-
-    # =====================
-    # TAB 3
-    # =====================
-
-
-    with tabs[2]:
-
-
-        forecast_days = np.arange(
-
-            split,
-
-            split+len(forecast)
-
-        )
-
-
-        fig = go.Figure()
-
-
-        fig.add_trace(
-
-            go.Scatter(
-
-                x=np.arange(
-
-                    len(I)
-
-                ),
-
-                y=I,
-
-                name="Actual"
-
+def run_streamlit_app():
+    import streamlit as st
+    import plotly.express as px
+    import plotly.graph_objects as go
+
+    st.set_page_config(page_title="EpiSentinel", layout="wide")
+    st.title("🦠 EpiSentinel")
+    st.subheader("NLP-Driven Epidemic Early Warning System")
+
+    source = st.radio("Choose data source", ["Generated Data", "Upload CSV"])
+    uploaded = None
+    if source == "Upload CSV":
+        uploaded = st.file_uploader("Upload CSV", type=["csv"])
+
+    if st.button("Run EpiSentinel"):
+        if uploaded:
+            df = pd.read_csv(uploaded)
+            df["date"] = pd.to_datetime(df["date"])
+            df["day"] = (df["date"] - df["date"].min()).dt.days
+            df["phase"] = "uploaded"
+        else:
+            df = generate_health_social_data(n_days=90)
+
+        sa = SentimentAnalyzer()
+        df = sa.analyze_dataframe(df)
+        daily_agg = sa.aggregate_daily(df)
+
+        sir_model = SIREpidemicModel(N=100_000)
+        sir_df = sir_model.simulate(daily_agg["mean_adjusted"])
+
+        split = 40
+        I = sir_df["I"].values
+        arima = ARIMAForecaster()
+        forecast, ci = arima.fit_and_forecast(I[:split], len(I) - split)
+        metrics = arima.compute_metrics(I[split:], forecast)
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Peak Infection", f"{int(sir_df['I'].max()):,}")
+        c2.metric("Mean Sentiment", f"{daily_agg['mean_adjusted'].mean():.2f}")
+        c3.metric("Forecast RMSE", f"{metrics['RMSE']:.0f}")
+        c4.metric("Max R₀", f"{sir_df['R0'].max():.2f}")
+
+        if sir_df["R0"].max() > 1:
+            st.error("⚠ Epidemic Risk Increasing")
+        else:
+            st.success("✓ Risk Controlled")
+
+        tabs = st.tabs(["Sentiment", "Infections", "Forecast", "Risk"])
+
+        with tabs[0]:
+            fig = px.line(daily_agg, x="day", y="mean_adjusted", title="Sentiment Trend")
+            st.plotly_chart(fig, use_container_width=True)
+
+        with tabs[1]:
+            fig = px.line(sir_df, x="day", y=["S", "I", "R"], title="SIR Simulation")
+            st.plotly_chart(fig, use_container_width=True)
+
+        with tabs[2]:
+            forecast_days = np.arange(split, split + len(forecast))
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=np.arange(len(I)), y=I, name="Actual"))
+            fig.add_trace(go.Scatter(x=forecast_days, y=forecast, name="Forecast"))
+            st.plotly_chart(fig, use_container_width=True)
+
+        with tabs[3]:
+            risk = abs(daily_agg["mean_adjusted"].mean()) * 100
+            if risk < 25:
+                num_color = "#00C853"
+            elif risk < 50:
+                num_color = "#FFD600"
+            elif risk < 75:
+                num_color = "#FF6D00"
+            else:
+                num_color = "#D50000"
+
+            fig = go.Figure(
+                go.Indicator(
+                    mode="gauge+number",
+                    value=risk,
+                    title={"text": "Epidemic Risk"},
+                    number={"font": {"size": 60, "color": num_color}},
+                    gauge={
+                        "axis": {"range": [0, 100]},
+                        "bar": {"color": num_color},
+                        "steps": [
+                            {"range": [0, 25], "color": "#00C853"},
+                            {"range": [25, 50], "color": "#FFD600"},
+                            {"range": [50, 75], "color": "#FF6D00"},
+                            {"range": [75, 100], "color": "#D50000"},
+                        ],
+                    },
+                )
             )
-
-        )
-
-
-        fig.add_trace(
-
-            go.Scatter(
-
-                x=forecast_days,
-
-                y=forecast,
-
-                name="Forecast"
-
-            )
-
-        )
+            st.plotly_chart(fig, use_container_width=True)
 
 
-        st.plotly_chart(
-
-            fig,
-
-            use_container_width=True
-
-        )
-
-
-    # =====================
-    # TAB 4
-    # =====================
-
-
-with tabs[3]:
-
-    risk = abs(
-        daily_agg["mean_adjusted"].mean()
-    ) * 100
-
-
-    # Change color based on risk level
-    if risk < 25:
-        num_color = "#00C853"      # Green
-
-    elif risk < 50:
-        num_color = "#FFD600"      # Yellow
-
-    elif risk < 75:
-        num_color = "#FF6D00"      # Orange
-
+if __name__ == "__main__":
+    streamlit_running = (
+        "streamlit" in sys.modules
+        or os.getenv("STREAMLIT_SERVER_PORT")
+        or os.getenv("STREAMLIT_RUN")
+    )
+    if streamlit_running:
+        run_streamlit_app()
     else:
-        num_color = "#D50000"      # Red
-
-
-    fig = go.Figure(
-
-        go.Indicator(
-
-            mode="gauge+number",
-
-            value=risk,
-
-            title={
-
-                'text':
-
-                "Epidemic Risk"
-
-            },
-
-            number={
-
-                'font': {
-
-                    'size':60,
-
-                    'color': num_color
-
-                }
-
-            },
-
-            gauge={
-
-                'axis': {
-
-                    'range':[0,100]
-
-                },
-
-
-                # Needle/bar color changes too
-                'bar': {
-
-                    'color': num_color
-
-                },
-
-
-                'steps':[
-
-                    {
-
-                        'range':[0,25],
-
-                        'color':"#00C853"
-
-                    },
-
-                    {
-
-                        'range':[25,50],
-
-                        'color':"#FFD600"
-
-                    },
-
-                    {
-
-                        'range':[50,75],
-
-                        'color':"#FF6D00"
-
-                    },
-
-                    {
-
-                        'range':[75,100],
-
-                        'color':"#D50000"
-
-                    }
-
-                ]
-
-            }
-
-        )
-
-    )
-
-
-    st.plotly_chart(
-
-        fig,
-
-        use_container_width=True
-
-    )
+        df, daily_agg, sir_df, forecast_I, metrics = main()
