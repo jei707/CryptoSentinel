@@ -23,7 +23,8 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
+import requests
 
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from arch import arch_model
@@ -40,9 +41,11 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Theme configuration
+# Session state initialization
 if "theme" not in st.session_state:
     st.session_state.theme = "dark"
+if "reddit_posts" not in st.session_state:
+    st.session_state.reddit_posts = None
 
 def get_theme_css(theme):
     if theme == "dark":
@@ -229,6 +232,120 @@ def get_theme_css(theme):
         """
 
 st.markdown(get_theme_css(st.session_state.theme), unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  REDDIT LIVE FETCH (No API Key Required)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def fetch_reddit_posts(
+    subreddits=["CryptoCurrency", "Bitcoin"],
+    limit=100,
+    sort="hot",
+    max_posts=None,        # None = unlimited (fetch all available pages)
+    progress_callback=None, # optional fn(fetched_so_far, sub) for UI updates
+    date_from=None,        # date: only keep posts on or after this date
+    date_to=None,          # date: only keep posts on or before this date
+):
+    """
+    Fetch posts from crypto subreddits using Reddit's public JSON endpoint.
+    No API credentials required — uses Reddit's free public JSON API.
+
+    Pagination: Reddit returns up to 100 posts per request. This function
+    follows the `after` cursor across multiple pages to retrieve as many
+    posts as are available (up to `max_posts` per subreddit if set).
+
+    Returns a CSV string in the same format as DEFAULT_POSTS: YYYY-MM-DD,text
+    """
+    headers = {"User-Agent": "CryptoSentinel/1.0 (research project)"}
+    # Reddit clamps each page to 100 posts max
+    page_size = min(100, limit if max_posts is None else 100)
+    lines = []
+    seen_ids = set()  # deduplicate across pages
+
+    for sub in subreddits:
+        after = None          # pagination cursor
+        sub_count = 0         # posts collected for this subreddit
+        consecutive_empties = 0
+
+        while True:
+            # Stop if we've hit the per-subreddit cap
+            if max_posts is not None and sub_count >= max_posts:
+                break
+
+            params = f"limit={page_size}"
+            if after:
+                params += f"&after={after}"
+
+            try:
+                url = f"https://www.reddit.com/r/{sub}/{sort}.json?{params}"
+                res = requests.get(url, headers=headers, timeout=15)
+                if res.status_code == 429:
+                    # Rate-limited — back off and retry once
+                    import time; time.sleep(2)
+                    res = requests.get(url, headers=headers, timeout=15)
+                if res.status_code != 200:
+                    break
+
+                data = res.json()
+                children = data["data"]["children"]
+                after    = data["data"].get("after")  # next page cursor
+
+                if not children:
+                    consecutive_empties += 1
+                    if consecutive_empties >= 2:
+                        break
+                    continue
+
+                consecutive_empties = 0
+                page_added = 0
+
+                for post in children:
+                    p    = post["data"]
+                    pid  = p.get("id", "")
+
+                    # Skip duplicates (can appear across hot/new pages)
+                    if pid in seen_ids:
+                        continue
+                    seen_ids.add(pid)
+
+                    date_str = datetime.utcfromtimestamp(
+                        p["created_utc"]
+                    ).strftime("%Y-%m-%d")
+
+                    # Combine title + selftext snippet for richer sentiment
+                    title    = p.get("title", "").replace("\n", " ").replace(",", " ").strip()
+                    selftext = p.get("selftext", "")[:120].replace("\n", " ").replace(",", " ").strip()
+                    text     = f"{title}. {selftext}".strip(". ") if selftext else title
+
+                    if text:
+                        post_date = datetime.utcfromtimestamp(p["created_utc"]).date()
+                        in_range = (
+                            (date_from is None or post_date >= date_from) and
+                            (date_to   is None or post_date <= date_to)
+                        )
+                        if in_range:
+                            lines.append(f"{date_str},{text}")
+                            sub_count  += 1
+                            page_added += 1
+
+                    if max_posts is not None and sub_count >= max_posts:
+                        break
+
+                if progress_callback:
+                    progress_callback(len(lines), sub)
+
+                # No more pages available
+                if not after:
+                    break
+
+                # Reddit throttle — be polite
+                import time; time.sleep(0.6)
+
+            except Exception:
+                break
+
+    return "\n".join(lines) if lines else None
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  CRYPTO SOCIAL MEDIA DATASET
@@ -582,9 +699,20 @@ def merge_all(price_df, daily_fear, cond_vol):
     df = price_df.copy()
     df["return_pct"]  = df["Close"].pct_change() * 100
     df["cond_vol"]    = cond_vol.reindex(df.index)
+
+    # Reindex fear data — forward fill, then backward fill so no NaNs remain
     df["fear_greed"]  = daily_fear["fear_greed"].reindex(df.index, method="ffill")
     df["fg_smooth"]   = daily_fear["fg_smooth"].reindex(df.index, method="ffill")
     df["post_count"]  = daily_fear["post_count"].reindex(df.index).fillna(0)
+
+    # If fear_greed is all NaN (date mismatch), fill with neutral 50
+    if df["fear_greed"].isna().all():
+        df["fear_greed"] = 50.0
+        df["fg_smooth"]  = 50.0
+    else:
+        # Backward fill any remaining NaNs at the start
+        df["fear_greed"] = df["fear_greed"].bfill().fillna(50.0)
+        df["fg_smooth"]  = df["fg_smooth"].bfill().fillna(50.0)
 
     def risk_zone(row):
         fg = row.get("fear_greed", 50)
@@ -968,10 +1096,10 @@ with st.sidebar:
     col1, col2 = st.columns(2)
     with col1:
         start_date = st.date_input("Start", value=date(2024, 1, 1),
-                                   min_value=date(2020, 1, 1))
+                                   min_value=date(2005, 1, 1))
     with col2:
-        end_date   = st.date_input("End",   value=date(2024, 3, 28),
-                                   min_value=date(2020, 1, 2))
+        end_date   = st.date_input("End", value=date.today(),
+                                   min_value=date(2005, 1, 2))
 
     st.markdown("### 🎯 Choose Analysis Style")
 
@@ -984,32 +1112,98 @@ with st.sidebar:
         help="Choose how sensitive the crypto warning system should be"
     )
 
-    if mode=="🟢 Beginner (Recommended)":
-        garch_p,garch_q,forecast_days=1,1,7
-        high_risk_vol,fear_threshold,greed_threshold=80,30,70
+    if mode == "🟢 Beginner (Recommended)":
+        garch_p, garch_q, forecast_days = 1, 1, 7
+        high_risk_vol, fear_threshold, greed_threshold = 80, 30, 70
         st.success("Easy mode: Stable forecasts and simple explanations.")
 
-    elif mode=="🟡 Balanced":
-        garch_p,garch_q,forecast_days=1,1,10
-        high_risk_vol,fear_threshold,greed_threshold=70,35,65
+    elif mode == "🟡 Balanced":
+        garch_p, garch_q, forecast_days = 1, 1, 10
+        high_risk_vol, fear_threshold, greed_threshold = 70, 35, 65
         st.info("Balanced mode: More responsive to market changes.")
 
-    elif mode=="🔴 Early Warnings":
-        garch_p,garch_q,forecast_days=1,1,14
-        high_risk_vol,fear_threshold,greed_threshold=60,40,60
+    elif mode == "🔴 Early Warnings":
+        garch_p, garch_q, forecast_days = 1, 1, 14
+        high_risk_vol, fear_threshold, greed_threshold = 60, 40, 60
         st.warning("Sensitive mode: Gives earlier risk alerts.")
 
     else:
         st.markdown("### ⚙️ Expert Controls")
-        garch_p = st.slider("How much yesterday's panic matters",1,3,1)
-        garch_q = st.slider("How long market stress lasts",1,3,1)
-        forecast_days = st.slider("Days to predict future risk",3,14,7)
-        high_risk_vol = st.slider("Warn me when risk exceeds (%)",50,150,80)
-        fear_threshold = st.slider("When traders look scared",10,45,30)
-        greed_threshold = st.slider("When hype gets excessive",55,90,70)
+        garch_p = st.slider("How much yesterday's panic matters", 1, 3, 1)
+        garch_q = st.slider("How long market stress lasts", 1, 3, 1)
+        forecast_days = st.slider("Days to predict future risk", 3, 14, 7)
+        high_risk_vol = st.slider("Warn me when risk exceeds (%)", 50, 150, 80)
+        fear_threshold = st.slider("When traders look scared", 10, 45, 30)
+        greed_threshold = st.slider("When hype gets excessive", 55, 90, 70)
+
+    st.markdown("---")
+    st.markdown("### 🔴 Live Reddit Data")
+    reddit_subs = st.multiselect(
+        "Subreddits to fetch",
+        ["CryptoCurrency", "Bitcoin", "ethereum", "solana", "CryptoMarkets"],
+        default=["CryptoCurrency", "Bitcoin"],
+    )
+    reddit_sort = st.selectbox("Sort by", ["hot", "new", "top"], index=0)
+
+    reddit_unlimited = st.toggle(
+        "♾️ Fetch all available pages",
+        value=False,
+        help="Paginate through Reddit until no more posts exist. "
+             "May take a minute — Reddit limits each page to 100 posts.",
+    )
+    if not reddit_unlimited:
+        reddit_max = st.slider(
+            "Max posts per subreddit", 25, 500, 100, step=25,
+            help="Fetches multiple pages if needed to reach this number.",
+        )
+    else:
+        reddit_max = None
+        st.caption("⚠️ Unlimited mode: will follow all pagination cursors. "
+                   "Reddit typically exposes ~1,000 posts per subreddit.")
+
+    fetch_btn = st.button("📡 Fetch Live Reddit Posts", use_container_width=True)
+    if fetch_btn:
+        progress_bar  = st.progress(0, text="Starting fetch…")
+        status_text   = st.empty()
+        fetch_counter = {"n": 0}
+
+        def on_progress(total, sub):
+            fetch_counter["n"] = total
+            cap = reddit_max if reddit_max else 1000
+            pct = min(total / (cap * len(reddit_subs)), 1.0)
+            progress_bar.progress(pct, text=f"Fetched {total} posts… (r/{sub})")
+            status_text.caption(f"📥 {total} posts collected so far")
+
+        with st.spinner("Paginating through Reddit…"):
+            result = fetch_reddit_posts(
+                subreddits=reddit_subs,
+                sort=reddit_sort,
+                max_posts=reddit_max,
+                progress_callback=on_progress,
+                date_from=start_date,
+                date_to=end_date,
+            )
+
+        progress_bar.empty()
+        status_text.empty()
+
+        if result:
+            st.session_state.reddit_posts = result
+            n = len([l for l in result.strip().split("\n") if l.strip()])
+            st.success(f"✅ Fetched {n} posts across {len(reddit_subs)} subreddit(s)!")
+        else:
+            st.error("❌ Could not fetch Reddit posts. Using default data.")
+
+    if st.session_state.reddit_posts:
+        if st.button("🗑️ Clear Live Data", use_container_width=True):
+            st.session_state.reddit_posts = None
+            st.rerun()
+        st.caption("🟢 Live Reddit data active")
 
     st.markdown("---")
     run_btn = st.button("🚀 Run Analysis", use_container_width=True)
+
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1033,6 +1227,15 @@ tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "📝 Social Media Input", "📖 H
 with tab2:
     st.markdown('<div class="section-hdr">Crypto Social Media Posts</div>',
                 unsafe_allow_html=True)
+
+    if st.session_state.reddit_posts:
+        n_live = len([l for l in st.session_state.reddit_posts.strip().split("\n") if l.strip()])
+        st.success(f"🟢 **Live Reddit data loaded** — {n_live} posts fetched. Editing below will override it.")
+        active_posts = st.session_state.reddit_posts
+    else:
+        st.info("💡 Click **📡 Fetch Live Reddit Posts** in the sidebar to load real-time data, or edit the default dataset below.")
+        active_posts = DEFAULT_POSTS
+
     st.markdown("""
     **Format:** `YYYY-MM-DD, post text here`
     Simulates Reddit (r/CryptoCurrency, r/Bitcoin) or Twitter/X posts.
@@ -1041,7 +1244,7 @@ with tab2:
     """)
 
     posts_input = st.text_area(
-        "Posts", value=DEFAULT_POSTS, height=450,
+        "Posts", value=active_posts, height=450,
         label_visibility="collapsed",
     )
 
@@ -1148,6 +1351,17 @@ with tab1:
             posts_df  = analyze_posts(posts_input)
             daily_fear = aggregate_daily(posts_df)
 
+        # If live Reddit data is used, dates are today's — auto-adjust
+        # price range to match the actual post dates so they align
+        if st.session_state.reddit_posts and not posts_df.empty:
+            post_min = posts_df["date"].min().date()
+            post_max = posts_df["date"].max().date()
+            # Only override if posts are outside the user-selected range
+            if post_min < start_date or post_max > end_date:
+                start_date = post_min
+                end_date   = post_max
+                st.info(f"📅 Date range auto-adjusted to match live Reddit posts: **{start_date}** → **{end_date}**")
+
         with st.spinner(f"📡 Fetching {ticker} price data..."):
             price_df, real_data = fetch_crypto_prices(
                 ticker, str(start_date), str(end_date)
@@ -1186,6 +1400,10 @@ with tab1:
 
         if not r["real_data"]:
             st.warning("⚠️ Yahoo Finance unavailable — using synthetic GBM price data. NLP and GARCH are real.")
+
+        if st.session_state.reddit_posts:
+            n_live = len([l for l in st.session_state.reddit_posts.strip().split("\n") if l.strip()])
+            st.success(f"🟢 Analysis powered by **{n_live} live Reddit posts**")
 
         # ── KPI Row ──────────────────────────────────────────────────────
         st.markdown('<div class="section-hdr">Live Dashboard</div>',
