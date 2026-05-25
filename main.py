@@ -938,7 +938,7 @@ def chart_returns_dist(returns, cond_vol, theme="dark"):
 # ═══════════════════════════════════════════════════════════════════════════
 
 with st.sidebar:
-    st.markdown("## ⚙️ Configuration")
+    st.markdown("## 🚀 Crypto Setup")
     st.markdown("---")
 
     st.markdown("### 🌓 Theme")
@@ -973,20 +973,40 @@ with st.sidebar:
         end_date   = st.date_input("End",   value=date(2024, 3, 28),
                                    min_value=date(2020, 1, 2))
 
-    st.markdown("### 📐 GARCH Settings")
-    garch_p = st.slider("ARCH order (p)", 1, 3, 1,
-                        help="Number of lagged squared residuals")
-    garch_q = st.slider("GARCH order (q)", 1, 3, 1,
-                        help="Number of lagged variance terms")
-    forecast_days = st.slider("Forecast Horizon (days)", 3, 14, 7)
+    st.markdown("### 🎯 Choose Analysis Style")
 
-    st.markdown("### 📊 Risk Thresholds")
-    high_risk_vol = st.slider("High Risk Volatility (%)", 50, 150, 80,
-                               help="Annualized vol threshold for High Risk classification")
-    fear_threshold = st.slider("Fear Zone Threshold", 10, 45, 30,
-                                help="F&G score below this = fear zone")
-    greed_threshold = st.slider("Greed Zone Threshold", 55, 90, 70,
-                                 help="F&G score above this = greed zone")
+    mode = st.selectbox(
+        "Analysis Mode",
+        ["🟢 Beginner (Recommended)",
+         "🟡 Balanced",
+         "🔴 Early Warnings",
+         "⚙️ Advanced"],
+        help="Choose how sensitive the crypto warning system should be"
+    )
+
+    if mode=="🟢 Beginner (Recommended)":
+        garch_p,garch_q,forecast_days=1,1,7
+        high_risk_vol,fear_threshold,greed_threshold=80,30,70
+        st.success("Easy mode: Stable forecasts and simple explanations.")
+
+    elif mode=="🟡 Balanced":
+        garch_p,garch_q,forecast_days=1,1,10
+        high_risk_vol,fear_threshold,greed_threshold=70,35,65
+        st.info("Balanced mode: More responsive to market changes.")
+
+    elif mode=="🔴 Early Warnings":
+        garch_p,garch_q,forecast_days=1,1,14
+        high_risk_vol,fear_threshold,greed_threshold=60,40,60
+        st.warning("Sensitive mode: Gives earlier risk alerts.")
+
+    else:
+        st.markdown("### ⚙️ Expert Controls")
+        garch_p = st.slider("How much yesterday's panic matters",1,3,1)
+        garch_q = st.slider("How long market stress lasts",1,3,1)
+        forecast_days = st.slider("Days to predict future risk",3,14,7)
+        high_risk_vol = st.slider("Warn me when risk exceeds (%)",50,150,80)
+        fear_threshold = st.slider("When traders look scared",10,45,30)
+        greed_threshold = st.slider("When hype gets excessive",55,90,70)
 
     st.markdown("---")
     run_btn = st.button("🚀 Run Analysis", use_container_width=True)
