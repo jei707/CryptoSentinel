@@ -40,95 +40,195 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+# Theme configuration
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
 
-html, body, [class*="css"] { font-family: 'Syne', sans-serif; }
+def get_theme_css(theme):
+    if theme == "dark":
+        return """
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 
-.hero {
-    background: linear-gradient(135deg, #0f0f1a 0%, #1a0533 50%, #0f1a0f 100%);
-    border: 1px solid #2d1b69;
-    border-radius: 20px;
-    padding: 32px 40px;
-    margin-bottom: 28px;
-    position: relative;
-    overflow: hidden;
-}
-.hero::after {
-    content: '🛡️';
-    position: absolute;
-    right: 40px; top: 50%;
-    transform: translateY(-50%);
-    font-size: 5rem;
-    opacity: 0.15;
-}
-.hero-title {
-    font-size: 2.4rem;
-    font-weight: 800;
-    background: linear-gradient(90deg, #a78bfa, #f472b6, #fb923c);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin: 0 0 8px 0;
-}
-.hero-sub { color: #94a3b8; font-size: 0.95rem; margin: 0; }
+        html, body, [class*="css"] { font-family: 'Syne', sans-serif; }
 
-.kpi-card {
-    background: #0d1117;
-    border-radius: 14px;
-    padding: 20px;
-    text-align: center;
-    border: 1px solid #1f2937;
-    transition: border-color 0.2s;
-}
-.kpi-label { color: #6b7280; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; }
-.kpi-value { font-family: 'JetBrains Mono', monospace; font-size: 1.8rem; font-weight: 700; color: #f9fafb; }
-.kpi-sub   { font-size: 0.78rem; margin-top: 4px; }
+        .hero {
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a0533 50%, #0f1a0f 100%);
+            border: 1px solid #2d1b69;
+            border-radius: 20px;
+            padding: 32px 40px;
+            margin-bottom: 28px;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::after {
+            content: '🛡️';
+            position: absolute;
+            right: 40px; top: 50%;
+            transform: translateY(-50%);
+            font-size: 5rem;
+            opacity: 0.15;
+        }
+        .hero-title {
+            font-size: 2.4rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, #a78bfa, #f472b6, #fb923c);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0 0 8px 0;
+        }
+        .hero-sub { color: #94a3b8; font-size: 0.95rem; margin: 0; }
 
-.fear-extreme  { color: #ef4444; }
-.fear-high     { color: #f97316; }
-.fear-neutral  { color: #eab308; }
-.fear-greed    { color: #22c55e; }
-.fear-extreme-greed { color: #10b981; }
+        .kpi-card {
+            background: #0d1117;
+            border-radius: 14px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid #1f2937;
+            transition: border-color 0.2s;
+        }
+        .kpi-label { color: #6b7280; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; }
+        .kpi-value { font-family: 'JetBrains Mono', monospace; font-size: 1.8rem; font-weight: 700; color: #f9fafb; }
+        .kpi-sub   { font-size: 0.78rem; margin-top: 4px; }
 
-.risk-badge {
-    display: inline-block;
-    padding: 6px 18px;
-    border-radius: 999px;
-    font-weight: 700;
-    font-size: 0.85rem;
-    letter-spacing: 0.05em;
-}
-.risk-extreme  { background: #450a0a; color: #fca5a5; border: 1px solid #ef4444; }
-.risk-high     { background: #431407; color: #fdba74; border: 1px solid #f97316; }
-.risk-moderate { background: #422006; color: #fde68a; border: 1px solid #eab308; }
-.risk-low      { background: #052e16; color: #86efac; border: 1px solid #22c55e; }
+        .fear-extreme  { color: #ef4444; }
+        .fear-high     { color: #f97316; }
+        .fear-neutral  { color: #eab308; }
+        .fear-greed    { color: #22c55e; }
+        .fear-extreme-greed { color: #10b981; }
 
-.section-hdr {
-    font-size: 1rem; font-weight: 700; color: #e2e8f0;
-    border-left: 3px solid #a78bfa;
-    padding-left: 10px; margin: 28px 0 14px 0;
-}
-.insight-box {
-    background: #0d1117;
-    border: 1px solid #1f2937;
-    border-radius: 12px;
-    padding: 16px 20px;
-    margin-bottom: 10px;
-}
-.insight-title { color: #a78bfa; font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
-.insight-text  { color: #d1d5db; font-size: 0.88rem; line-height: 1.5; }
+        .risk-badge {
+            display: inline-block;
+            padding: 6px 18px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+        }
+        .risk-extreme  { background: #450a0a; color: #fca5a5; border: 1px solid #ef4444; }
+        .risk-high     { background: #431407; color: #fdba74; border: 1px solid #f97316; }
+        .risk-moderate { background: #422006; color: #fde68a; border: 1px solid #eab308; }
+        .risk-low      { background: #052e16; color: #86efac; border: 1px solid #22c55e; }
 
-div[data-testid="stSidebar"] { background: #0a0a12; }
-.stButton > button {
-    background: linear-gradient(135deg, #7c3aed, #db2777);
-    color: white; border: none; border-radius: 12px;
-    padding: 12px 28px; font-weight: 700;
-    font-size: 0.95rem; width: 100%;
-}
-.stButton > button:hover { opacity: 0.9; transform: translateY(-1px); }
-</style>
-""", unsafe_allow_html=True)
+        .section-hdr {
+            font-size: 1rem; font-weight: 700; color: #e2e8f0;
+            border-left: 3px solid #a78bfa;
+            padding-left: 10px; margin: 28px 0 14px 0;
+        }
+        .insight-box {
+            background: #0d1117;
+            border: 1px solid #1f2937;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 10px;
+        }
+        .insight-title { color: #a78bfa; font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
+        .insight-text  { color: #d1d5db; font-size: 0.88rem; line-height: 1.5; }
+
+        div[data-testid="stSidebar"] { background: #0a0a12; }
+        .stButton > button {
+            background: linear-gradient(135deg, #7c3aed, #db2777);
+            color: white; border: none; border-radius: 12px;
+            padding: 12px 28px; font-weight: 700;
+            font-size: 0.95rem; width: 100%;
+        }
+        .stButton > button:hover { opacity: 0.9; transform: translateY(-1px); }
+        </style>
+        """
+    else:  # Light mode
+        return """
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+        html, body, [class*="css"] { font-family: 'Syne', sans-serif; }
+
+        .hero {
+            background: linear-gradient(135deg, #f8f9fa 0%, #f0e6ff 50%, #f0faf0 100%);
+            border: 1px solid #d4c5f9;
+            border-radius: 20px;
+            padding: 32px 40px;
+            margin-bottom: 28px;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::after {
+            content: '🛡️';
+            position: absolute;
+            right: 40px; top: 50%;
+            transform: translateY(-50%);
+            font-size: 5rem;
+            opacity: 0.08;
+        }
+        .hero-title {
+            font-size: 2.4rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, #7c3aed, #db2777, #f97316);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0 0 8px 0;
+        }
+        .hero-sub { color: #6b7280; font-size: 0.95rem; margin: 0; }
+
+        .kpi-card {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+            transition: border-color 0.2s;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        .kpi-label { color: #6b7280; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; }
+        .kpi-value { font-family: 'JetBrains Mono', monospace; font-size: 1.8rem; font-weight: 700; color: #1f2937; }
+        .kpi-sub   { font-size: 0.78rem; margin-top: 4px; }
+
+        .fear-extreme  { color: #dc2626; }
+        .fear-high     { color: #ea580c; }
+        .fear-neutral  { color: #d97706; }
+        .fear-greed    { color: #16a34a; }
+        .fear-extreme-greed { color: #0891b2; }
+
+        .risk-badge {
+            display: inline-block;
+            padding: 6px 18px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+        }
+        .risk-extreme  { background: #fee2e2; color: #991b1b; border: 1px solid #dc2626; }
+        .risk-high     { background: #fed7aa; color: #92400e; border: 1px solid #ea580c; }
+        .risk-moderate { background: #fef3c7; color: #78350f; border: 1px solid #d97706; }
+        .risk-low      { background: #dcfce7; color: #166534; border: 1px solid #16a34a; }
+
+        .section-hdr {
+            font-size: 1rem; font-weight: 700; color: #1f2937;
+            border-left: 3px solid #7c3aed;
+            padding-left: 10px; margin: 28px 0 14px 0;
+        }
+        .insight-box {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        .insight-title { color: #7c3aed; font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
+        .insight-text  { color: #374151; font-size: 0.88rem; line-height: 1.5; }
+
+        div[data-testid="stSidebar"] { background: #f9fafb; }
+        .stButton > button {
+            background: linear-gradient(135deg, #7c3aed, #db2777);
+            color: white; border: none; border-radius: 12px;
+            padding: 12px 28px; font-weight: 700;
+            font-size: 0.95rem; width: 100%;
+        }
+        .stButton > button:hover { opacity: 0.9; transform: translateY(-1px); }
+        </style>
+        """
+
+st.markdown(get_theme_css(st.session_state.theme), unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  CRYPTO SOCIAL MEDIA DATASET
@@ -503,18 +603,39 @@ def merge_all(price_df, daily_fear, cond_vol):
 #  CHARTS
 # ═══════════════════════════════════════════════════════════════════════════
 
-BG   = "#0d1117"
-GRID = "#1f2937"
-BASE = dict(
-    paper_bgcolor=BG, plot_bgcolor="#080d14",
-    font=dict(color="#e2e8f0", family="JetBrains Mono"),
-    margin=dict(l=55, r=30, t=55, b=50),
-    xaxis=dict(gridcolor=GRID, showgrid=True, zeroline=False),
-    yaxis=dict(gridcolor=GRID, showgrid=True, zeroline=False),
-)
+def get_theme_colors(theme):
+    if theme == "dark":
+        return {
+            "BG": "#0d1117",
+            "GRID": "#1f2937",
+            "PLOT_BG": "#080d14",
+            "TEXT": "#e2e8f0",
+            "GRID_BORDER": "#374151",
+        }
+    else:  # light
+        return {
+            "BG": "#ffffff",
+            "GRID": "#e5e7eb",
+            "PLOT_BG": "#f9fafb",
+            "TEXT": "#1f2937",
+            "GRID_BORDER": "#d1d5db",
+        }
+
+def get_base_layout(theme):
+    colors = get_theme_colors(theme)
+    return dict(
+        paper_bgcolor=colors["BG"], 
+        plot_bgcolor=colors["PLOT_BG"],
+        font=dict(color=colors["TEXT"], family="JetBrains Mono"),
+        margin=dict(l=55, r=30, t=55, b=50),
+        xaxis=dict(gridcolor=colors["GRID"], showgrid=True, zeroline=False),
+        yaxis=dict(gridcolor=colors["GRID"], showgrid=True, zeroline=False),
+    )
 
 
-def chart_price_vol(merged):
+def chart_price_vol(merged, theme="dark"):
+    colors = get_theme_colors(theme)
+    BASE = get_base_layout(theme)
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
                         row_heights=[0.65, 0.35],
                         vertical_spacing=0.04)
@@ -559,7 +680,7 @@ def chart_price_vol(merged):
 
     fig.update_layout(**BASE,
         title="① Crypto Price vs Market Risk",
-        legend=dict(bgcolor=GRID, bordercolor="#374151", borderwidth=1),
+        legend=dict(bgcolor=colors["GRID"], bordercolor=colors["GRID_BORDER"], borderwidth=1),
         height=480,
     )
     fig.update_yaxes(title_text="Price (USD)", row=1, col=1)
@@ -567,7 +688,9 @@ def chart_price_vol(merged):
     return fig
 
 
-def chart_fear_greed(merged, daily_fear, forecast_df):
+def chart_fear_greed(merged, daily_fear, forecast_df, theme="dark"):
+    colors = get_theme_colors(theme)
+    BASE = get_base_layout(theme)
     fig = go.Figure()
 
     zones = [
@@ -620,41 +743,33 @@ def chart_fear_greed(merged, daily_fear, forecast_df):
         line=dict(color="#a78bfa", width=2.5)
     ))
 
-    fig.update_layout(
-        paper_bgcolor=BG,
-        plot_bgcolor="#080d14",
-        font=dict(color="#e2e8f0"),
-
-        title="② What Crypto Social Media Feels Right Now",
-
-        xaxis=dict(
-            gridcolor=GRID,
-            showgrid=True
-        ),
-
-        yaxis=dict(
+    layout_dict = BASE.copy()
+    layout_dict.update({
+        "title": "② What Crypto Social Media Feels Right Now",
+        "yaxis": dict(
             title="Fear & Greed",
             range=[0,100],
-            gridcolor=GRID
+            gridcolor=colors["GRID"],
+            showgrid=True
         ),
-
-        yaxis2=dict(
+        "yaxis2": dict(
             title="Post Count",
             overlaying="y",
             side="right",
             showgrid=False
         ),
-
-        legend=dict(
-            bgcolor=GRID
+        "legend": dict(
+            bgcolor=colors["GRID"]
         ),
-
-        height=380
-    )
+        "height": 380
+    })
+    fig.update_layout(**layout_dict)
 
     return fig
 
-def chart_vol_forecast(forecast_df, cond_vol, returns):
+def chart_vol_forecast(forecast_df, cond_vol, returns, theme="dark"):
+    colors = get_theme_colors(theme)
+    BASE = get_base_layout(theme)
     fig = go.Figure()
 
     # Historical volatility
@@ -706,7 +821,7 @@ def chart_vol_forecast(forecast_df, cond_vol, returns):
     fig.add_vline(
         x=forecast_start,
         line_dash="dash",
-        line_color="#374151"
+        line_color=colors["GRID_BORDER"]
     )
 
     fig.add_annotation(
@@ -725,18 +840,26 @@ def chart_vol_forecast(forecast_df, cond_vol, returns):
         opacity=0.4
     )
 
-    fig.update_layout(
-        **BASE,
-        title="③ Expected Market Chaos (Next Few Days)",
-        yaxis_title="Annualized Volatility (%)",
-        legend=dict(bgcolor=GRID),
-        height=360
-    )
+    layout_dict = BASE.copy()
+    layout_dict.update({
+        "title": "③ Expected Market Chaos (Next Few Days)",
+        "yaxis": dict(
+            title="Annualized Volatility (%)",
+            gridcolor=colors["GRID"],
+            showgrid=True,
+            zeroline=False
+        ),
+        "legend": dict(bgcolor=colors["GRID"]),
+        "height": 360
+    })
+    fig.update_layout(**layout_dict)
 
     return fig
 
 
-def chart_fear_vs_vol(merged):
+def chart_fear_vs_vol(merged, theme="dark"):
+    colors = get_theme_colors(theme)
+    BASE = get_base_layout(theme)
     # Scatter: fear vs volatility — shows the NLP→GARCH relationship
     clean = merged.dropna(subset=["fear_greed","cond_vol"])
 
@@ -762,15 +885,19 @@ def chart_fear_vs_vol(merged):
             name="Trend", line=dict(color="#a78bfa", width=2, dash="dash"),
         ))
 
-    fig.update_layout(**BASE,
-        title="④ Does Panic Cause Bigger Price Swings?",
-        coloraxis_showscale=False,
-        height=360,
-    )
+    layout_dict = BASE.copy()
+    layout_dict.update({
+        "title": "④ Does Panic Cause Bigger Price Swings?",
+        "coloraxis_showscale": False,
+        "height": 360,
+    })
+    fig.update_layout(**layout_dict)
     return fig
 
 
-def chart_returns_dist(returns, cond_vol):
+def chart_returns_dist(returns, cond_vol, theme="dark"):
+    colors = get_theme_colors(theme)
+    BASE = get_base_layout(theme)
     fig = make_subplots(rows=1, cols=2,
                         subplot_titles=["Return Distribution", "Volatility Clustering"])
 
@@ -796,10 +923,13 @@ def chart_returns_dist(returns, cond_vol):
         fill="tozeroy", fillcolor="rgba(244,114,182,0.1)",
     ), row=1, col=2)
 
-    fig.update_layout(**BASE,
-        title="⑤ Return Distribution & Volatility Clustering",
-        showlegend=True, height=340,
-    )
+    layout_dict = BASE.copy()
+    layout_dict.update({
+        "title": "⑤ Return Distribution & Volatility Clustering",
+        "showlegend": True,
+        "height": 340,
+    })
+    fig.update_layout(**layout_dict)
     return fig
 
 
@@ -809,6 +939,21 @@ def chart_returns_dist(returns, cond_vol):
 
 with st.sidebar:
     st.markdown("## ⚙️ Configuration")
+    st.markdown("---")
+
+    st.markdown("### 🌓 Theme")
+    theme_option = st.radio(
+        "Select Theme",
+        ["🌙 Dark Mode", "☀️ Light Mode"],
+        index=0 if st.session_state.theme == "dark" else 1,
+        label_visibility="collapsed"
+    )
+    
+    selected_theme = "dark" if "🌙" in theme_option else "light"
+    if selected_theme != st.session_state.theme:
+        st.session_state.theme = selected_theme
+        st.rerun()
+    
     st.markdown("---")
 
     st.markdown("### 💰 Crypto Asset")
@@ -1058,38 +1203,95 @@ with tab1:
         st.markdown("<br>", unsafe_allow_html=True)
 
         st.markdown("### 📌 Today's Crypto Outlook")
-        summary=[]
-        if latest_fg<25: summary.append("😨 Social media is panicking.")
-        elif latest_fg>75: summary.append("🚀 Crypto sentiment is very bullish.")
-        else: summary.append("😐 Sentiment is mixed.")
-        if fc_max_vol>100: summary.append("⚠️ Large price swings expected.")
-        elif fc_max_vol<50: summary.append("✅ Market looks relatively stable.")
-        summary.append(f"Market mood: {fg_label}")
-        summary.append(f"Expected risk: {fc_risk}")
-        st.info("\n".join(summary))
+        summary_parts = []
+        if latest_fg<25: summary_parts.append("😨 Social media is panicking.")
+        elif latest_fg>75: summary_parts.append("🚀 Crypto sentiment is very bullish.")
+        else: summary_parts.append("😐 Sentiment is mixed.")
+        if fc_max_vol>100: summary_parts.append("⚠️ Large price swings expected.")
+        elif fc_max_vol<50: summary_parts.append("✅ Market looks relatively stable.")
+        
+        summary_text = "\n".join(summary_parts)
+        summary_text += f"\n\nMarket mood: **{fg_label}**\n\nExpected risk: **{fc_risk}**"
+        st.info(summary_text)
 
 
         # ── Charts ────────────────────────────────────────────────────────
         
-        st.plotly_chart(chart_price_vol(merged), use_container_width=True)
-        st.info(f"📈 Price vs Risk: Current market risk is {latest_vol:.0f}%. Higher values mean larger expected swings. Current zone: {merged['risk_zone'].iloc[-1]}")
+        st.markdown('<div class="section-hdr">📊 Market Analysis Charts</div>',
+                    unsafe_allow_html=True)
 
+        chart_tab1, chart_tab2, chart_tab3, chart_tab4, chart_tab5 = st.tabs([
+            "💹 Price & Risk Level",
+            "🗣️ Market Sentiment",
+            "⚡ Fear Impact",
+            "🔮 7-Day Forecast",
+            "📈 Price Patterns"
+        ])
 
-        col_a, col_b = st.columns([3, 2])
-        with col_a:
-            st.plotly_chart(chart_fear_greed(merged, daily_fear, forecast_df), use_container_width=True)
-            st.caption(f"🧠 Social mood: {fg_label}. Score={latest_fg:.0f}/100. Low=panic, high=hype.")
-        with col_b:
-            st.plotly_chart(chart_fear_vs_vol(merged), use_container_width=True)
-            st.caption("🔍 This graph checks whether fear is linked to bigger price swings.")
+        with chart_tab1:
+            st.plotly_chart(chart_price_vol(merged, st.session_state.theme), use_container_width=True)
+            st.info(f"""
+**Real-time Price & Risk Assessment**
 
-        col_c, col_d = st.columns(2)
-        with col_c:
-            st.plotly_chart(chart_vol_forecast(forecast_df, cond_vol, returns), use_container_width=True)
-            st.caption(f"🔮 Forecast: Highest expected volatility is {fc_max_vol:.1f}%. Risk outlook: {fc_risk}.")
-        with col_d:
-            st.plotly_chart(chart_returns_dist(returns, cond_vol), use_container_width=True)
-            st.caption("📊 Shows whether recent price moves were calm or unusually extreme.")
+Current market risk is **{latest_vol:.0f}%**
+
+Higher values mean larger expected price swings.
+
+Risk zone: **{merged['risk_zone'].iloc[-1]}** — colored zones show different risk periods over time.
+""")
+
+        with chart_tab2:
+            st.plotly_chart(chart_fear_greed(merged, daily_fear, forecast_df, st.session_state.theme), use_container_width=True)
+            st.info(f"""
+**What Are Crypto Traders Saying?**
+
+Market sentiment: **{fg_label}** (Score: **{latest_fg:.0f}/100**)
+
+**Sentiment Scale:**
+- **0–20:** Extreme Fear (panic selling)
+- **40–60:** Neutral (mixed feelings)
+- **80–100:** Extreme Greed (euphoria)
+
+Bars show daily post volume. The smoothed line filters out noise to show real trends.
+""")
+
+        with chart_tab3:
+            st.plotly_chart(chart_fear_vs_vol(merged, st.session_state.theme), use_container_width=True)
+            st.info("""
+**Does Panic Actually Cause Bigger Swings?**
+
+This chart reveals the relationship between market fear and volatility.
+
+Points moving up-right show that when fear increases, price swings tend to get larger.
+
+A clear upward trend confirms that scared traders = wilder markets.
+""")
+
+        with chart_tab4:
+            st.plotly_chart(chart_vol_forecast(forecast_df, cond_vol, returns, st.session_state.theme), use_container_width=True)
+            st.info(f"""
+**What's Coming in the Next {forecast_days} Days?**
+
+Highest expected volatility: **{fc_max_vol:.1f}%**
+
+Risk outlook: **{fc_risk}**
+
+The pink line shows our prediction. The shaded band around it represents uncertainty — actual volatility will likely fall within this range.
+
+Blue line shows recent history for context.
+""")
+
+        with chart_tab5:
+            st.plotly_chart(chart_returns_dist(returns, cond_vol, st.session_state.theme), use_container_width=True)
+            st.info("""
+**How Do Price Swings Happen?**
+
+**Left Chart: Distribution of daily returns**
+Shows if movements are small & frequent or rare & extreme. The pink curve is what a 'normal' market would look like. Crypto usually has fatter tails (more extreme moves).
+
+**Right Chart: Volatility clustering**
+Notice how high-risk periods bunch together. One big move often triggers more big moves.
+""")
 
         # ── Forecast Table ────────────────────────────────────────────────
         st.markdown('<div class="section-hdr">📅 Volatility Forecast Table</div>',
