@@ -1060,6 +1060,75 @@ def chart_returns_dist(returns, cond_vol, theme="dark"):
     fig.update_layout(**layout_dict)
     return fig
 
+def chart_prediction_vs_actual(returns, cond_vol, forecast_df, theme="dark"):
+    colors = get_theme_colors(theme)
+    BASE = get_base_layout(theme)
+
+    fig = go.Figure()
+
+    # Actual realized volatility (7-day rolling volatility)
+    actual_vol = returns.rolling(7).std() * np.sqrt(365)
+
+    fig.add_trace(go.Scatter(
+        x=actual_vol.index,
+        y=actual_vol,
+        name="Actual Volatility",
+        line=dict(color="#60a5fa", width=2)
+    ))
+
+    # Predicted historical volatility from GARCH
+    fig.add_trace(go.Scatter(
+        x=cond_vol.index,
+        y=cond_vol,
+        name="Predicted (GARCH)",
+        line=dict(color="#a78bfa", width=2)
+    ))
+
+    # Future forecast
+    fig.add_trace(go.Scatter(
+        x=forecast_df.index,
+        y=forecast_df["volatility"],
+        name="Forecast",
+        mode="lines+markers",
+        line=dict(color="#f472b6", dash="dot", width=2),
+        marker=dict(size=8)
+    ))
+
+    fig.add_vline(
+        x=cond_vol.index[-1],
+        line_dash="dash",
+        line_color="gray"
+    )
+
+    fig.add_annotation(
+        x=cond_vol.index[-1],
+        y=max(
+            actual_vol.max(skipna=True),
+            cond_vol.max(),
+            forecast_df["volatility"].max()
+        ),
+        text="Forecast Starts",
+        showarrow=False,
+        font=dict(color="#f472b6")
+    )
+
+    layout = BASE.copy()
+    layout.update({
+        "title": "⑥ Prediction vs Actual Volatility",
+        "height": 400,
+        "yaxis": dict(
+            title="Annualized Volatility (%)",
+            gridcolor=colors["GRID"]
+        ),
+        "legend": dict(
+            bgcolor=colors["GRID"]
+        )
+    })
+
+    fig.update_layout(**layout)
+
+    return fig
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  SIDEBAR
@@ -1458,12 +1527,13 @@ with tab1:
         st.markdown('<div class="section-hdr">📊 Market Analysis Charts</div>',
                     unsafe_allow_html=True)
 
-        chart_tab1, chart_tab2, chart_tab3, chart_tab4, chart_tab5 = st.tabs([
+        chart_tab1, chart_tab2, chart_tab3, chart_tab4, chart_tab5, chart_tab6 = st.tabs([
             "💹 Price & Risk Level",
             "🗣️ Market Sentiment",
             "⚡ Fear Impact",
-            "🔮 7-Day Forecast",
-            "📈 Price Patterns"
+            "🔮 Forecast",
+            "📈 Price Patterns",
+            "🎯 Prediction vs Actual"
         ])
 
         with chart_tab1:
@@ -1530,6 +1600,34 @@ Shows if movements are small & frequent or rare & extreme. The pink curve is wha
 **Right Chart: Volatility clustering**
 Notice how high-risk periods bunch together. One big move often triggers more big moves.
 """)
+            
+        with chart_tab6:
+
+            st.plotly_chart(
+                chart_prediction_vs_actual(
+                    returns,
+                    cond_vol,
+                    forecast_df,
+                    st.session_state.theme
+                ),
+                use_container_width=True
+            )
+
+            st.info("""
+        ### Prediction vs Actual Trend
+
+        **Blue line**
+        = Actual realized market volatility
+
+        **Purple line**
+        = GARCH predicted volatility
+
+        **Pink line**
+        = Future forecast
+
+        If purple closely follows blue, the model predicts volatility well.
+        This validates the computational model performance.
+        """)
 
         # ── Forecast Table ────────────────────────────────────────────────
         st.markdown('<div class="section-hdr">📅 Volatility Forecast Table</div>',
