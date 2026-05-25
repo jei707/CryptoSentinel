@@ -1,6 +1,6 @@
 """
 =============================================================================
- CryptoSentinel — Crypto Fear & Volatility Forecasting Engine
+ Volasense — Crypto Fear & Volatility Forecasting Engine
 =============================================================================
  NLP   : VADER + custom crypto lexicon → Daily Fear/Greed Index (0–100)
  Model : GARCH(1,1) — industry-standard volatility forecasting
@@ -10,7 +10,7 @@
    Crypto posts/news → Fear Score → injected as external regressor
    into GARCH model → volatility forecast → risk classification
 
- Run: streamlit run crypto_app.py
+ Run: streamlit run main.py
 =============================================================================
 """
 
@@ -35,8 +35,7 @@ import yfinance as yf
 # ═══════════════════════════════════════════════════════════════════════════
 
 st.set_page_config(
-    page_title="CryptoSentinel",
-    page_icon="🛡️",
+    page_title="Volasense",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -47,6 +46,106 @@ if "theme" not in st.session_state:
 if "reddit_posts" not in st.session_state:
     st.session_state.reddit_posts = None
 
+
+FEATHER_ICONS = {
+    "shield": '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>',
+    "settings": (
+        '<circle cx="12" cy="12" r="3"></circle>'
+        '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83'
+        ' 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33'
+        ' 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2'
+        ' 2 2 0 0 1-2-2v-.09a1.65 1.65 0 0 0-1-1.51'
+        ' 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0'
+        ' 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82'
+        ' 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2'
+        ' 2 2 0 0 1 2-2h.09a1.65 1.65 0 0 0 1.51-1'
+        ' 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83'
+        ' 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33'
+        'H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2'
+        ' 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51'
+        ' 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0'
+        ' 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82'
+        'V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2'
+        ' 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>'
+    ),
+    "sun": (
+        '<circle cx="12" cy="12" r="5"></circle>'
+        '<line x1="12" y1="1" x2="12" y2="3"></line>'
+        '<line x1="12" y1="21" x2="12" y2="23"></line>'
+        '<line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>'
+        '<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>'
+        '<line x1="1" y1="12" x2="3" y2="12"></line>'
+        '<line x1="21" y1="12" x2="23" y2="12"></line>'
+        '<line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>'
+        '<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>'
+    ),
+    "moon": '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>',
+    "dollar-sign": (
+        '<line x1="12" y1="1" x2="12" y2="23"></line>'
+        '<path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"></path>'
+    ),
+    "crosshair": (
+        '<circle cx="12" cy="12" r="10"></circle>'
+        '<line x1="22" y1="12" x2="18" y2="12"></line>'
+        '<line x1="6" y1="12" x2="2" y2="12"></line>'
+        '<line x1="12" y1="2" x2="12" y2="6"></line>'
+        '<line x1="12" y1="18" x2="12" y2="22"></line>'
+    ),
+    "wifi": (
+        '<path d="M5 12.55a11 11 0 0 1 14.08 0"></path>'
+        '<path d="M1.42 9a16 16 0 0 1 21.16 0"></path>'
+        '<path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>'
+        '<line x1="12" y1="20" x2="12.01" y2="20"></line>'
+    ),
+    "bar-chart-2": (
+        '<line x1="18" y1="20" x2="18" y2="10"></line>'
+        '<line x1="12" y1="20" x2="12" y2="4"></line>'
+        '<line x1="6" y1="20" x2="6" y2="14"></line>'
+    ),
+    "edit-3": (
+        '<path d="M12 20h9"></path>'
+        '<path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>'
+    ),
+    "book-open": (
+        '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>'
+        '<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>'
+    ),
+    "search": (
+        '<circle cx="11" cy="11" r="8"></circle>'
+        '<line x1="21" y1="21" x2="16.65" y2="16.65"></line>'
+    ),
+    "activity": (
+        '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>'
+    ),
+    "table": (
+        '<path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h6m-6 0v18m6-18h4a2 2 0 0 1 2 2v4m-6-6v18m6-12H3m18 0v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9m18 0H3"></path>'
+    ),
+    "alert-triangle": (
+        '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>'
+        '<line x1="12" y1="9" x2="12" y2="13"></line>'
+        '<line x1="12" y1="17" x2="12.01" y2="17"></line>'
+    ),
+    "trending-up": (
+        '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>'
+        '<polyline points="17 6 23 6 23 12"></polyline>'
+    ),
+}
+
+
+def feather_icon(name: str, size: int = 18, extra_class: str = "") -> str:
+    body = FEATHER_ICONS.get(name)
+    if not body:
+        return ""
+    cls = ("fi " + extra_class).strip()
+    return (
+        f'<svg class="{cls}" xmlns="http://www.w3.org/2000/svg" '
+        f'width="{size}" height="{size}" viewBox="0 0 24 24" '
+        'fill="none" stroke="currentColor" stroke-width="2" '
+        'stroke-linecap="round" stroke-linejoin="round">'
+        f"{body}</svg>"
+    )
+
+
 def get_theme_css(theme):
     if theme == "dark":
         return """
@@ -54,33 +153,55 @@ def get_theme_css(theme):
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 
         html, body, [class*="css"] { font-family: 'Syne', sans-serif; }
+        :root { color-scheme: dark; }
+
+        html, body, .stApp, div[data-testid="stAppViewContainer"] {
+            background: #0b0f16;
+            color: #e2e8f0;
+        }
+        div[data-testid="stHeader"] {
+            background: rgba(11, 15, 22, 0.7);
+            backdrop-filter: blur(6px);
+        }
+        div.block-container {
+            padding-top: 2.2rem;
+            padding-bottom: 3rem;
+            max-width: 1200px;
+        }
 
         .hero {
-            background: linear-gradient(135deg, #0f0f1a 0%, #1a0533 50%, #0f1a0f 100%);
-            border: 1px solid #2d1b69;
+            background: linear-gradient(135deg, #0b1220 0%, #0b2a4a 50%, #063d35 100%);
+            border: 1px solid #1e3a8a;
             border-radius: 20px;
             padding: 32px 40px;
             margin-bottom: 28px;
             position: relative;
             overflow: hidden;
         }
-        .hero::after {
-            content: '🛡️';
-            position: absolute;
-            right: 40px; top: 50%;
-            transform: translateY(-50%);
-            font-size: 5rem;
-            opacity: 0.15;
-        }
         .hero-title {
             font-size: 2.4rem;
             font-weight: 800;
-            background: linear-gradient(90deg, #a78bfa, #f472b6, #fb923c);
+            background: linear-gradient(90deg, #38bdf8, #14b8a6, #f59e0b);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin: 0 0 8px 0;
         }
         .hero-sub { color: #94a3b8; font-size: 0.95rem; margin: 0; }
+
+        .stTabs [data-baseweb="tab-list"] {
+            background: #0f172a;
+            border: 1px solid #1f2937;
+            border-radius: 999px;
+            padding: 6px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            color: #cbd5f5;
+            border-radius: 999px;
+        }
+        .stTabs [data-baseweb="tab"][aria-selected="true"] {
+            background: #1f2937;
+            color: #f8fafc;
+        }
 
         .kpi-card {
             background: #0d1117;
@@ -115,7 +236,7 @@ def get_theme_css(theme):
 
         .section-hdr {
             font-size: 1rem; font-weight: 700; color: #e2e8f0;
-            border-left: 3px solid #a78bfa;
+            border-left: 3px solid #38bdf8;
             padding-left: 10px; margin: 28px 0 14px 0;
         }
         .insight-box {
@@ -125,17 +246,32 @@ def get_theme_css(theme):
             padding: 16px 20px;
             margin-bottom: 10px;
         }
-        .insight-title { color: #a78bfa; font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
+        .insight-title { color: #38bdf8; font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
         .insight-text  { color: #d1d5db; font-size: 0.88rem; line-height: 1.5; }
 
-        div[data-testid="stSidebar"] { background: #0a0a12; }
+        div[data-testid="stSidebar"],
+        section[data-testid="stSidebar"] {
+            background: #0a0a12;
+        }
+        div[data-testid="stSidebar"] > div { padding-top: 1.5rem; }
         .stButton > button {
-            background: linear-gradient(135deg, #7c3aed, #db2777);
+            background: linear-gradient(135deg, #2563eb, #14b8a6);
             color: white; border: none; border-radius: 12px;
             padding: 12px 28px; font-weight: 700;
             font-size: 0.95rem; width: 100%;
         }
         .stButton > button:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        .fi { display: inline-block; vertical-align: -0.18em; margin-right: 0.45rem; }
+        .hero-title .fi { margin-right: 0.55rem; }
+
+        [data-baseweb="input"] input,
+        [data-baseweb="textarea"] textarea,
+        [data-baseweb="select"] > div {
+            background-color: #0d1117 !important;
+            color: #e2e8f0 !important;
+            border-color: #1f2937 !important;
+        }
         </style>
         """
     else:  # Light mode
@@ -144,45 +280,72 @@ def get_theme_css(theme):
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 
         html, body, [class*="css"] { font-family: 'Syne', sans-serif; }
+        :root { color-scheme: light; }
+
+        html, body, .stApp, div[data-testid="stAppViewContainer"] {
+            background: #f5f7fb;
+            color: #0b0b0b;
+        }
+        div[data-testid="stHeader"] {
+            background: rgba(245, 247, 251, 0.8);
+            backdrop-filter: blur(6px);
+        }
+        div.block-container {
+            padding-top: 2.2rem;
+            padding-bottom: 3rem;
+            max-width: 1200px;
+        }
 
         .hero {
-            background: linear-gradient(135deg, #f8f9fa 0%, #f0e6ff 50%, #f0faf0 100%);
-            border: 1px solid #d4c5f9;
+            background: linear-gradient(135deg, #ffffff 0%, #eef6ff 50%, #eefaf3 100%);
+            border: 1px solid #e5e7eb;
             border-radius: 20px;
             padding: 32px 40px;
             margin-bottom: 28px;
             position: relative;
             overflow: hidden;
-        }
-        .hero::after {
-            content: '🛡️';
-            position: absolute;
-            right: 40px; top: 50%;
-            transform: translateY(-50%);
-            font-size: 5rem;
-            opacity: 0.08;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
         }
         .hero-title {
             font-size: 2.4rem;
             font-weight: 800;
-            background: linear-gradient(90deg, #7c3aed, #db2777, #f97316);
+            background: linear-gradient(90deg, #2563eb, #14b8a6, #f59e0b);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin: 0 0 8px 0;
         }
-        .hero-sub { color: #6b7280; font-size: 0.95rem; margin: 0; }
+        .hero-sub { color: #475569; font-size: 0.98rem; margin: 0; }
+
+        .stTabs [data-baseweb="tab-list"] {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 999px;
+            padding: 6px;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+        }
+        .stTabs [data-baseweb="tab"] {
+            color: #475569;
+            border-radius: 999px;
+        }
+        .stTabs [data-baseweb="tab"][aria-selected="true"] {
+            background: #f1f5f9;
+            color: #0b0b0b;
+        }
+        .stTabs [data-baseweb="tab"] span {
+            font-weight: 600;
+        }
 
         .kpi-card {
             background: #ffffff;
             border-radius: 14px;
             padding: 20px;
             text-align: center;
-            border: 1px solid #e5e7eb;
+            border: 1px solid #e7e5f4;
             transition: border-color 0.2s;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
         }
-        .kpi-label { color: #6b7280; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; }
-        .kpi-value { font-family: 'JetBrains Mono', monospace; font-size: 1.8rem; font-weight: 700; color: #1f2937; }
+        .kpi-label { color: #64748b; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.12em; }
+        .kpi-value { font-family: 'JetBrains Mono', monospace; font-size: 1.8rem; font-weight: 700; color: #0b0b0b; }
         .kpi-sub   { font-size: 0.78rem; margin-top: 4px; }
 
         .fear-extreme  { color: #dc2626; }
@@ -205,29 +368,145 @@ def get_theme_css(theme):
         .risk-low      { background: #dcfce7; color: #166534; border: 1px solid #16a34a; }
 
         .section-hdr {
-            font-size: 1rem; font-weight: 700; color: #1f2937;
-            border-left: 3px solid #7c3aed;
-            padding-left: 10px; margin: 28px 0 14px 0;
+            font-size: 1.05rem; font-weight: 800; color: #0b0b0b;
+            border-left: 4px solid #2563eb;
+            padding-left: 12px; margin: 30px 0 16px 0;
         }
         .insight-box {
             background: #ffffff;
-            border: 1px solid #e5e7eb;
+            border: 1px solid #e7e5f4;
             border-radius: 12px;
             padding: 16px 20px;
             margin-bottom: 10px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
         }
-        .insight-title { color: #7c3aed; font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
-        .insight-text  { color: #374151; font-size: 0.88rem; line-height: 1.5; }
+        .insight-title { color: #2563eb; font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; }
+        .insight-text  { color: #0b0b0b; font-size: 0.92rem; line-height: 1.6; }
 
-        div[data-testid="stSidebar"] { background: #f9fafb; }
+        div[data-testid="stSidebar"],
+        section[data-testid="stSidebar"] {
+            background: #f5f7fb;
+            color: #0b0b0b !important;
+        }
+        /* Sidebar drawer / collapsed-control surfaces (mobile + narrow layouts) */
+        div[data-testid="stSidebarNav"],
+        div[data-testid="stSidebarHeader"],
+        div[data-testid="stSidebarContent"],
+        div[data-testid="stSidebarCollapsedControl"],
+        div[data-testid="stSidebarCollapsedControl"] > div,
+        div[data-testid="collapsedControl"],
+        div[data-testid="collapsedControl"] > div {
+            background: #f5f7fb !important;
+        }
+        div[data-testid="stSidebarCollapsedControl"] button {
+            background: #f5f7fb !important;
+            color: #0b0b0b !important;
+            border-color: #e5e7eb !important;
+        }
+        div[data-testid="collapsedControl"] button,
+        button[data-testid="collapsedControl"] {
+            background: #f5f7fb !important;
+            color: #0b0b0b !important;
+            border-color: #e5e7eb !important;
+        }
+        div[data-testid="stSidebarCollapsedControl"] svg {
+            fill: #0b0b0b !important;
+            color: #0b0b0b !important;
+        }
+        div[data-testid="collapsedControl"] svg,
+        button[data-testid="collapsedControl"] svg {
+            fill: #0b0b0b !important;
+            color: #0b0b0b !important;
+        }
+        /* BaseWeb drawer used by Streamlit sidebar overlay */
+        div[data-baseweb="drawer"] > div {
+            background: #f5f7fb !important;
+            color: #0b0b0b !important;
+        }
+        div[data-baseweb="drawer"] {
+            color: #0b0b0b !important;
+        }
+        div[data-baseweb="drawer"] * {
+            color: #0b0b0b !important;
+        }
+        div[data-testid="stSidebar"] *,
+        section[data-testid="stSidebar"] * {
+            color: #0b0b0b !important;
+        }
+        div[data-testid="stSidebarNav"] * {
+            color: #0b0b0b !important;
+        }
+        div[data-testid="stSidebar"] > div { padding-top: 1.5rem; }
+        div[data-testid="stSidebar"] hr {
+            border-color: #e5e7eb;
+        }
         .stButton > button {
-            background: linear-gradient(135deg, #7c3aed, #db2777);
+            background: linear-gradient(135deg, #2563eb, #14b8a6);
             color: white; border: none; border-radius: 12px;
             padding: 12px 28px; font-weight: 700;
             font-size: 0.95rem; width: 100%;
         }
         .stButton > button:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        .fi { display: inline-block; vertical-align: -0.18em; margin-right: 0.45rem; }
+        .hero-title .fi { margin-right: 0.55rem; }
+
+        div[data-testid="stMetric"] {
+            background: #ffffff;
+            border: 1px solid #e7e5f4;
+            border-radius: 14px;
+            padding: 12px 14px;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+        }
+        div[data-testid="stMetricLabel"] { color: #64748b; }
+        div[data-testid="stMetricValue"] { color: #0b0b0b; }
+        div[data-testid="stMetricDelta"] { color: #0b0b0b; }
+
+        [data-baseweb="input"] input,
+        [data-baseweb="textarea"] textarea,
+        [data-baseweb="select"] > div {
+            background-color: #ffffff !important;
+            color: #0b0b0b !important;
+            border-color: #e5e7eb !important;
+        }
+        [data-baseweb="input"] input::placeholder,
+        [data-baseweb="textarea"] textarea::placeholder {
+            color: #94a3b8 !important;
+        }
+
+        .stMarkdown p, .stMarkdown li, .stMarkdown span,
+        label, .stText, .stCaption {
+            color: #0b0b0b;
+        }
+
+        div[data-testid="stSidebar"] label,
+        div[data-testid="stSidebar"] p,
+        div[data-testid="stSidebar"] span,
+        div[data-testid="stSidebar"] h1,
+        div[data-testid="stSidebar"] h2,
+        div[data-testid="stSidebar"] h3,
+        div[data-testid="stSidebar"] h4,
+        div[data-testid="stSidebar"] h5,
+        div[data-testid="stSidebar"] h6,
+        div[data-testid="stSidebar"] li,
+        div[data-testid="stSidebar"] small {
+            color: #0b0b0b !important;
+        }
+
+        div[data-testid="stSidebar"] [data-baseweb] {
+            color: #0b0b0b !important;
+        }
+
+        .stRadio label,
+        .stSelectbox label,
+        .stMultiSelect label,
+        .stDateInput label,
+        .stSlider label,
+        .stTextInput label,
+        .stTextArea label,
+        .stToggle label {
+            color: #0b0b0b !important;
+        }
         </style>
         """
 
@@ -256,7 +535,7 @@ def fetch_reddit_posts(
 
     Returns a CSV string in the same format as DEFAULT_POSTS: YYYY-MM-DD,text
     """
-    headers = {"User-Agent": "CryptoSentinel/1.0 (research project)"}
+    headers = {"User-Agent": "Volasense/1.0 (research project)"}
     # Reddit clamps each page to 100 posts max
     page_size = min(100, limit if max_posts is None else 100)
     lines = []
@@ -717,11 +996,11 @@ def merge_all(price_df, daily_fear, cond_vol):
     def risk_zone(row):
         fg = row.get("fear_greed", 50)
         cv = row.get("cond_vol", 60)
-        if fg < 25 and cv > 80:   return "🔴 Danger Zone"
-        if fg < 35 and cv > 60:   return "🟠 High Alert"
-        if fg > 70 and cv > 90:   return "🟡 Euphoria Risk"
-        if fg > 65 and cv < 50:   return "🟢 Bull Momentum"
-        return                           "⚪ Normal"
+        if fg < 25 and cv > 80:   return "Danger Zone"
+        if fg < 35 and cv > 60:   return "High Alert"
+        if fg > 70 and cv > 90:   return "Euphoria Risk"
+        if fg > 65 and cv < 50:   return "Bull Momentum"
+        return                           "Normal"
 
     df["risk_zone"] = df.apply(risk_zone, axis=1)
     return df.dropna(subset=["Close"])
@@ -770,11 +1049,11 @@ def chart_price_vol(merged, theme="dark"):
 
     # Risk zone backgrounds
     zone_colors = {
-        "🔴 Danger Zone":   "rgba(239,68,68,0.08)",
-        "🟠 High Alert":    "rgba(249,115,22,0.06)",
-        "🟡 Euphoria Risk": "rgba(234,179,8,0.06)",
-        "🟢 Bull Momentum": "rgba(34,197,94,0.06)",
-        "⚪ Normal":        "rgba(0,0,0,0)",
+        "Danger Zone":   "rgba(239,68,68,0.08)",
+        "High Alert":    "rgba(249,115,22,0.06)",
+        "Euphoria Risk": "rgba(234,179,8,0.06)",
+        "Bull Momentum": "rgba(34,197,94,0.06)",
+        "Normal":        "rgba(0,0,0,0)",
     }
     for i in range(len(merged) - 1):
         col = zone_colors.get(merged["risk_zone"].iloc[i], "rgba(0,0,0,0)")
@@ -795,8 +1074,8 @@ def chart_price_vol(merged, theme="dark"):
     fig.add_trace(go.Scatter(
         x=merged.index, y=merged["cond_vol"],
         name="GARCH Volatility (ann. %)",
-        line=dict(color="#f472b6", width=2),
-        fill="tozeroy", fillcolor="rgba(244,114,182,0.08)",
+        line=dict(color="#14b8a6", width=2),
+        fill="tozeroy", fillcolor="rgba(20,184,166,0.10)",
     ), row=2, col=1)
 
     # Danger threshold line
@@ -843,7 +1122,7 @@ def chart_fear_greed(merged, daily_fear, forecast_df, theme="dark"):
         y=daily_fear["post_count"],
         name="Post Volume",
         yaxis="y2",
-        marker_color="rgba(167,139,250,0.15)"
+        marker_color="rgba(37,99,235,0.14)"
     ))
 
     fig.add_trace(go.Scatter(
@@ -868,7 +1147,7 @@ def chart_fear_greed(merged, daily_fear, forecast_df, theme="dark"):
         x=merged.index,
         y=merged["fg_smooth"],
         name="3-Day Smoothed",
-        line=dict(color="#a78bfa", width=2.5)
+        line=dict(color="#2563eb", width=2.5)
     ))
 
     layout_dict = BASE.copy()
@@ -921,7 +1200,7 @@ def chart_vol_forecast(forecast_df, cond_vol, returns, theme="dark"):
         x=forecast_df.index,
         y=forecast_df["volatility"],
         name="Forecasted Volatility",
-        line=dict(color="#f472b6", width=2.5, dash="dot"),
+        line=dict(color="#14b8a6", width=2.5, dash="dot"),
         marker=dict(
             size=8,
             color=[fc_colors.get(r,"#888")
@@ -938,7 +1217,7 @@ def chart_vol_forecast(forecast_df, cond_vol, returns, theme="dark"):
           list((forecast_df["volatility"]-hist_std)[::-1]),
 
         fill="toself",
-        fillcolor="rgba(244,114,182,0.1)",
+        fillcolor="rgba(20,184,166,0.10)",
         line=dict(color="rgba(0,0,0,0)"),
         name="Uncertainty Band"
     ))
@@ -958,7 +1237,7 @@ def chart_vol_forecast(forecast_df, cond_vol, returns, theme="dark"):
               forecast_df["volatility"].max()),
         text="Forecast →",
         showarrow=False,
-        font=dict(color="#f472b6")
+        font=dict(color="#14b8a6")
     )
 
     fig.add_hline(
@@ -1010,7 +1289,7 @@ def chart_fear_vs_vol(merged, theme="dark"):
         xline = np.linspace(x[mask].min(), x[mask].max(), 50)
         fig.add_trace(go.Scatter(
             x=xline, y=np.polyval(z, xline),
-            name="Trend", line=dict(color="#a78bfa", width=2, dash="dash"),
+            name="Trend", line=dict(color="#2563eb", width=2, dash="dash"),
         ))
 
     layout_dict = BASE.copy()
@@ -1042,13 +1321,13 @@ def chart_returns_dist(returns, cond_vol, theme="dark"):
     y_norm = y_norm * len(returns) * (returns.max()-returns.min()) / 40
     fig.add_trace(go.Scatter(
         x=x_norm, y=y_norm, name="Normal Fit",
-        line=dict(color="#f472b6", width=2),
+        line=dict(color="#14b8a6", width=2),
     ), row=1, col=1)
 
     fig.add_trace(go.Scatter(
         x=cond_vol.index, y=cond_vol.values,
-        name="GARCH Vol", line=dict(color="#f472b6", width=1.5),
-        fill="tozeroy", fillcolor="rgba(244,114,182,0.1)",
+        name="GARCH Vol", line=dict(color="#14b8a6", width=1.5),
+        fill="tozeroy", fillcolor="rgba(20,184,166,0.10)",
     ), row=1, col=2)
 
     layout_dict = BASE.copy()
@@ -1081,7 +1360,7 @@ def chart_prediction_vs_actual(returns, cond_vol, forecast_df, theme="dark"):
         x=cond_vol.index,
         y=cond_vol,
         name="Predicted (GARCH)",
-        line=dict(color="#a78bfa", width=2)
+        line=dict(color="#14b8a6", width=2)
     ))
 
     # Future forecast
@@ -1090,7 +1369,7 @@ def chart_prediction_vs_actual(returns, cond_vol, forecast_df, theme="dark"):
         y=forecast_df["volatility"],
         name="Forecast",
         mode="lines+markers",
-        line=dict(color="#f472b6", dash="dot", width=2),
+        line=dict(color="#f59e0b", dash="dot", width=2),
         marker=dict(size=8)
     ))
 
@@ -1109,7 +1388,7 @@ def chart_prediction_vs_actual(returns, cond_vol, forecast_df, theme="dark"):
         ),
         text="Forecast Starts",
         showarrow=False,
-        font=dict(color="#f472b6")
+        font=dict(color="#f59e0b")
     )
 
     layout = BASE.copy()
@@ -1135,25 +1414,25 @@ def chart_prediction_vs_actual(returns, cond_vol, forecast_df, theme="dark"):
 # ═══════════════════════════════════════════════════════════════════════════
 
 with st.sidebar:
-    st.markdown("## 🚀 Crypto Setup")
+    st.markdown(f"## {feather_icon('settings', 18)} Volasense", unsafe_allow_html=True)
     st.markdown("---")
 
-    st.markdown("### 🌓 Theme")
+    st.markdown(f"### {feather_icon('sun', 16)} Theme", unsafe_allow_html=True)
     theme_option = st.radio(
         "Select Theme",
-        ["🌙 Dark Mode", "☀️ Light Mode"],
+        ["Dark Mode", "Light Mode"],
         index=0 if st.session_state.theme == "dark" else 1,
         label_visibility="collapsed"
     )
     
-    selected_theme = "dark" if "🌙" in theme_option else "light"
+    selected_theme = "dark" if theme_option.startswith("Dark") else "light"
     if selected_theme != st.session_state.theme:
         st.session_state.theme = selected_theme
         st.rerun()
     
     st.markdown("---")
 
-    st.markdown("### 💰 Crypto Asset")
+    st.markdown(f"### {feather_icon('dollar-sign', 16)} Crypto Asset", unsafe_allow_html=True)
     ticker = st.selectbox(
         "Select Cryptocurrency",
         ["BTC-USD", "ETH-USD", "BNB-USD", "SOL-USD", "Custom"],
@@ -1170,34 +1449,34 @@ with st.sidebar:
         end_date   = st.date_input("End", value=date.today(),
                                    min_value=date(2005, 1, 2))
 
-    st.markdown("### 🎯 Choose Analysis Style")
+    st.markdown(f"### {feather_icon('crosshair', 16)} Choose Analysis Style", unsafe_allow_html=True)
 
     mode = st.selectbox(
         "Analysis Mode",
-        ["🟢 Beginner (Recommended)",
-         "🟡 Balanced",
-         "🔴 Early Warnings",
-         "⚙️ Advanced"],
+        ["Beginner (Recommended)",
+         "Balanced",
+         "Early Warnings",
+         "Advanced"],
         help="Choose how sensitive the crypto warning system should be"
     )
 
-    if mode == "🟢 Beginner (Recommended)":
+    if mode == "Beginner (Recommended)":
         garch_p, garch_q, forecast_days = 1, 1, 7
         high_risk_vol, fear_threshold, greed_threshold = 80, 30, 70
         st.success("Easy mode: Stable forecasts and simple explanations.")
 
-    elif mode == "🟡 Balanced":
+    elif mode == "Balanced":
         garch_p, garch_q, forecast_days = 1, 1, 10
         high_risk_vol, fear_threshold, greed_threshold = 70, 35, 65
         st.info("Balanced mode: More responsive to market changes.")
 
-    elif mode == "🔴 Early Warnings":
+    elif mode == "Early Warnings":
         garch_p, garch_q, forecast_days = 1, 1, 14
         high_risk_vol, fear_threshold, greed_threshold = 60, 40, 60
         st.warning("Sensitive mode: Gives earlier risk alerts.")
 
     else:
-        st.markdown("### ⚙️ Expert Controls")
+        st.markdown(f"### {feather_icon('settings', 16)} Expert Controls", unsafe_allow_html=True)
         garch_p = st.slider("How much yesterday's panic matters", 1, 3, 1)
         garch_q = st.slider("How long market stress lasts", 1, 3, 1)
         forecast_days = st.slider("Days to predict future risk", 3, 14, 7)
@@ -1206,7 +1485,7 @@ with st.sidebar:
         greed_threshold = st.slider("When hype gets excessive", 55, 90, 70)
 
     st.markdown("---")
-    st.markdown("### 🔴 Live Reddit Data")
+    st.markdown(f"### {feather_icon('wifi', 16)} Live Reddit Data", unsafe_allow_html=True)
     reddit_subs = st.multiselect(
         "Subreddits to fetch",
         ["CryptoCurrency", "Bitcoin", "ethereum", "solana", "CryptoMarkets"],
@@ -1215,7 +1494,7 @@ with st.sidebar:
     reddit_sort = st.selectbox("Sort by", ["hot", "new", "top"], index=0)
 
     reddit_unlimited = st.toggle(
-        "♾️ Fetch all available pages",
+        "Fetch all available pages",
         value=False,
         help="Paginate through Reddit until no more posts exist. "
              "May take a minute — Reddit limits each page to 100 posts.",
@@ -1227,10 +1506,10 @@ with st.sidebar:
         )
     else:
         reddit_max = None
-        st.caption("⚠️ Unlimited mode: will follow all pagination cursors. "
+        st.caption("Unlimited mode: will follow all pagination cursors. "
                    "Reddit typically exposes ~1,000 posts per subreddit.")
 
-    fetch_btn = st.button("📡 Fetch Live Reddit Posts", use_container_width=True)
+    fetch_btn = st.button("Fetch Live Reddit Posts", use_container_width=True)
     if fetch_btn:
         progress_bar  = st.progress(0, text="Starting fetch…")
         status_text   = st.empty()
@@ -1241,7 +1520,7 @@ with st.sidebar:
             cap = reddit_max if reddit_max else 1000
             pct = min(total / (cap * len(reddit_subs)), 1.0)
             progress_bar.progress(pct, text=f"Fetched {total} posts… (r/{sub})")
-            status_text.caption(f"📥 {total} posts collected so far")
+            status_text.caption(f"{total} posts collected so far")
 
         with st.spinner("Paginating through Reddit…"):
             result = fetch_reddit_posts(
@@ -1259,18 +1538,18 @@ with st.sidebar:
         if result:
             st.session_state.reddit_posts = result
             n = len([l for l in result.strip().split("\n") if l.strip()])
-            st.success(f"✅ Fetched {n} posts across {len(reddit_subs)} subreddit(s)!")
+            st.success(f"Fetched {n} posts across {len(reddit_subs)} subreddit(s)!")
         else:
-            st.error("❌ Could not fetch Reddit posts. Using default data.")
+            st.error("Could not fetch Reddit posts. Using default data.")
 
     if st.session_state.reddit_posts:
-        if st.button("🗑️ Clear Live Data", use_container_width=True):
+        if st.button("Clear Live Data", use_container_width=True):
             st.session_state.reddit_posts = None
             st.rerun()
-        st.caption("🟢 Live Reddit data active")
+        st.caption("Live Reddit data active")
 
     st.markdown("---")
-    run_btn = st.button("🚀 Run Analysis", use_container_width=True)
+    run_btn = st.button("Run Analysis", use_container_width=True)
 
 
 
@@ -1279,30 +1558,35 @@ with st.sidebar:
 #  MAIN LAYOUT
 # ═══════════════════════════════════════════════════════════════════════════
 
-st.markdown("""
+st.markdown(
+    f"""
 <div class="hero">
-    <p class="hero-title">🛡️ CryptoSentinel</p>
+    <p class="hero-title">{feather_icon('shield', 22)} Volasense</p>
     <p class="hero-sub">
-        Crypto Fear & Volatility Forecasting Engine &nbsp;·&nbsp;
+        Crypto Fear &amp; Volatility Forecasting Engine &nbsp;·&nbsp;
         NLP Fear Index → GARCH(1,1) Volatility Model &nbsp;·&nbsp;
         Early Risk Detection System
     </p>
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
-tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "📝 Social Media Input", "📖 How It Works"])
+tab1, tab2, tab3 = st.tabs(["Dashboard", "Social Media Input", "How It Works"])
 
 # ── Tab 2: Input ──────────────────────────────────────────────────────────
 with tab2:
-    st.markdown('<div class="section-hdr">Crypto Social Media Posts</div>',
-                unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="section-hdr">{feather_icon("edit-3", 16)} Crypto Social Media Posts</div>',
+        unsafe_allow_html=True,
+    )
 
     if st.session_state.reddit_posts:
         n_live = len([l for l in st.session_state.reddit_posts.strip().split("\n") if l.strip()])
-        st.success(f"🟢 **Live Reddit data loaded** — {n_live} posts fetched. Editing below will override it.")
+        st.success(f"Live Reddit data loaded — {n_live} posts fetched. Editing below will override it.")
         active_posts = st.session_state.reddit_posts
     else:
-        st.info("💡 Click **📡 Fetch Live Reddit Posts** in the sidebar to load real-time data, or edit the default dataset below.")
+        st.info("Tip: Click **Fetch Live Reddit Posts** in the sidebar to load real-time data, or edit the default dataset below.")
         active_posts = DEFAULT_POSTS
 
     st.markdown("""
@@ -1318,10 +1602,12 @@ with tab2:
     )
 
     n_posts = len([l for l in posts_input.strip().split("\n") if l.strip()])
-    st.info(f"📌 **{n_posts} posts** loaded across the date range.")
+    st.info(f"**{n_posts} posts** loaded across the date range.")
 
-    st.markdown('<div class="section-hdr">🔬 Live Post Tester</div>',
-                unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="section-hdr">{feather_icon("search", 16)} Live Post Tester</div>',
+        unsafe_allow_html=True,
+    )
     test_post = st.text_input(
         "Type any crypto post:",
         placeholder="e.g. Bitcoin just crashed 20% and I'm completely rekt..."
@@ -1340,7 +1626,7 @@ with tab2:
 # ── Tab 3: About ──────────────────────────────────────────────────────────
 with tab3:
     st.markdown("""
-    ## How CryptoSentinel Works
+    ## How Volasense Works
 
     ### The core insight
     In crypto, **volatility is more predictable than direction.**
@@ -1383,10 +1669,10 @@ with tab3:
     ### Risk Zones
     | Zone | Condition | Meaning |
     |---|---|---|
-    | 🔴 Danger Zone | Fear < 25 AND Vol > 80% | Panic selling, very high risk |
-    | 🟠 High Alert | Fear < 35 AND Vol > 60% | Market stressed, caution needed |
-    | 🟡 Euphoria Risk | Greed > 70 AND Vol > 90% | Over-extended, correction risk |
-    | 🟢 Bull Momentum | Greed > 65 AND Vol < 50% | Healthy uptrend, lower risk |
+    | Danger Zone | Fear < 25 AND Vol > 80% | Panic selling, very high risk |
+    | High Alert | Fear < 35 AND Vol > 60% | Market stressed, caution needed |
+    | Euphoria Risk | Greed > 70 AND Vol > 90% | Over-extended, correction risk |
+    | Bull Momentum | Greed > 65 AND Vol < 50% | Healthy uptrend, lower risk |
 
     ### References
     - Engle (1982). *Autoregressive Conditional Heteroskedasticity.* Econometrica.
@@ -1398,12 +1684,14 @@ with tab3:
 # ── Tab 1: Dashboard ──────────────────────────────────────────────────────
 with tab1:
     if not run_btn and "crypto_results" not in st.session_state:
-        st.markdown("""
+        st.markdown(f"""
         <div style="text-align:center;padding:80px 40px;color:#4b5563;">
-            <div style="font-size:5rem;">🛡️</div>
+            <div style="display:flex;justify-content:center;">
+                <div style="width:84px;height:84px;color:#2563eb;">{feather_icon('shield', 84, 'fi-hero')}</div>
+            </div>
             <div style="font-size:1.2rem;font-weight:700;color:#6b7280;margin-top:16px;">
                 Configure settings in the sidebar and click
-                <strong style="color:#a78bfa">Run Analysis</strong>
+                <strong style="color:#2563eb">Run Analysis</strong>
             </div>
             <div style="font-size:0.9rem;color:#374151;margin-top:8px;">
                 Add your own crypto posts in the Social Media Input tab
@@ -1416,7 +1704,7 @@ with tab1:
             st.error("Start date must be before end date.")
             st.stop()
 
-        with st.spinner("🔍 Running NLP sentiment pipeline..."):
+        with st.spinner("Running NLP sentiment pipeline..."):
             posts_df  = analyze_posts(posts_input)
             daily_fear = aggregate_daily(posts_df)
 
@@ -1429,14 +1717,14 @@ with tab1:
             if post_min < start_date or post_max > end_date:
                 start_date = post_min
                 end_date   = post_max
-                st.info(f"📅 Date range auto-adjusted to match live Reddit posts: **{start_date}** → **{end_date}**")
+                st.info(f"Date range auto-adjusted to match live Reddit posts: **{start_date}** → **{end_date}**")
 
-        with st.spinner(f"📡 Fetching {ticker} price data..."):
+        with st.spinner(f"Fetching {ticker} price data..."):
             price_df, real_data = fetch_crypto_prices(
                 ticker, str(start_date), str(end_date)
             )
 
-        with st.spinner("📐 Fitting GARCH model..."):
+        with st.spinner("Fitting GARCH model..."):
             returns   = compute_returns(price_df)
             cond_vol, forecast_df, garch_metrics = fit_garch(
                 returns, daily_fear, p=garch_p, q=garch_q,
@@ -1468,11 +1756,11 @@ with tab1:
         posts_df     = r["posts_df"]
 
         if not r["real_data"]:
-            st.warning("⚠️ Yahoo Finance unavailable — using synthetic GBM price data. NLP and GARCH are real.")
+            st.warning("Yahoo Finance unavailable — using synthetic GBM price data. NLP and GARCH are real.")
 
         if st.session_state.reddit_posts:
             n_live = len([l for l in st.session_state.reddit_posts.strip().split("\n") if l.strip()])
-            st.success(f"🟢 Analysis powered by **{n_live} live Reddit posts**")
+            st.success(f"Analysis powered by **{n_live} live Reddit posts**")
 
         # ── KPI Row ──────────────────────────────────────────────────────
         st.markdown('<div class="section-hdr">Live Dashboard</div>',
@@ -1484,7 +1772,7 @@ with tab1:
         fc_risk      = forecast_df["risk_label"].iloc[0]
         persistence  = garch_metrics["persistence"]
         fg_label, fg_cls = classify_fear(latest_fg)
-        n_danger = (merged["risk_zone"] == "🔴 Danger Zone").sum()
+        n_danger = (merged["risk_zone"] == "Danger Zone").sum()
 
         c1,c2,c3,c4,c5,c6 = st.columns(6)
 
@@ -1509,13 +1797,21 @@ with tab1:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        st.markdown("### 📌 Today's Crypto Outlook")
+        st.markdown(
+            f"<div class=\"section-hdr\">{feather_icon('trending-up', 16)} Today's Crypto Outlook</div>",
+            unsafe_allow_html=True,
+        )
         summary_parts = []
-        if latest_fg<25: summary_parts.append("😨 Social media is panicking.")
-        elif latest_fg>75: summary_parts.append("🚀 Crypto sentiment is very bullish.")
-        else: summary_parts.append("😐 Sentiment is mixed.")
-        if fc_max_vol>100: summary_parts.append("⚠️ Large price swings expected.")
-        elif fc_max_vol<50: summary_parts.append("✅ Market looks relatively stable.")
+        if latest_fg < 25:
+            summary_parts.append("Social media sentiment looks fearful.")
+        elif latest_fg > 75:
+            summary_parts.append("Social media sentiment looks bullish.")
+        else:
+            summary_parts.append("Social media sentiment looks mixed.")
+        if fc_max_vol > 100:
+            summary_parts.append("Large price swings are expected.")
+        elif fc_max_vol < 50:
+            summary_parts.append("Market conditions look relatively stable.")
         
         summary_text = "\n".join(summary_parts)
         summary_text += f"\n\nMarket mood: **{fg_label}**\n\nExpected risk: **{fc_risk}**"
@@ -1524,16 +1820,18 @@ with tab1:
 
         # ── Charts ────────────────────────────────────────────────────────
         
-        st.markdown('<div class="section-hdr">📊 Market Analysis Charts</div>',
-                    unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="section-hdr">{feather_icon("bar-chart-2", 16)} Market Analysis Charts</div>',
+            unsafe_allow_html=True,
+        )
 
         chart_tab1, chart_tab2, chart_tab3, chart_tab4, chart_tab5, chart_tab6 = st.tabs([
-            "💹 Price & Risk Level",
-            "🗣️ Market Sentiment",
-            "⚡ Fear Impact",
-            "🔮 Forecast",
-            "📈 Price Patterns",
-            "🎯 Prediction vs Actual"
+            "Price & Risk Level",
+            "Market Sentiment",
+            "Fear Impact",
+            "Forecast",
+            "Price Patterns",
+            "Prediction vs Actual",
         ])
 
         with chart_tab1:
@@ -1584,7 +1882,7 @@ Highest expected volatility: **{fc_max_vol:.1f}%**
 
 Risk outlook: **{fc_risk}**
 
-The pink line shows our prediction. The shaded band around it represents uncertainty — actual volatility will likely fall within this range.
+The teal line shows our prediction. The shaded band around it represents uncertainty — actual volatility will likely fall within this range.
 
 Blue line shows recent history for context.
 """)
@@ -1595,7 +1893,7 @@ Blue line shows recent history for context.
 **How Do Price Swings Happen?**
 
 **Left Chart: Distribution of daily returns**
-Shows if movements are small & frequent or rare & extreme. The pink curve is what a 'normal' market would look like. Crypto usually has fatter tails (more extreme moves).
+Shows if movements are small & frequent or rare & extreme. The teal curve is what a 'normal' market would look like. Crypto usually has fatter tails (more extreme moves).
 
 **Right Chart: Volatility clustering**
 Notice how high-risk periods bunch together. One big move often triggers more big moves.
@@ -1619,19 +1917,21 @@ Notice how high-risk periods bunch together. One big move often triggers more bi
         **Blue line**
         = Actual realized market volatility
 
-        **Purple line**
+        **Teal line**
         = GARCH predicted volatility
 
-        **Pink line**
+        **Amber line**
         = Future forecast
 
-        If purple closely follows blue, the model predicts volatility well.
+        If teal closely follows blue, the model predicts volatility well.
         This validates the computational model performance.
         """)
 
         # ── Forecast Table ────────────────────────────────────────────────
-        st.markdown('<div class="section-hdr">📅 Volatility Forecast Table</div>',
-                    unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="section-hdr">{feather_icon("table", 16)} Volatility Forecast Table</div>',
+            unsafe_allow_html=True,
+        )
         fc_display = forecast_df.copy().reset_index()
         fc_display["date"]       = fc_display["date"].dt.strftime("%Y-%m-%d")
         fc_display["volatility"] = fc_display["volatility"].map(lambda x: f"{x:.1f}%")
@@ -1640,8 +1940,10 @@ Notice how high-risk periods bunch together. One big move often triggers more bi
         st.dataframe(fc_display, use_container_width=True, hide_index=True)
 
         # ── GARCH Stats ───────────────────────────────────────────────────
-        st.markdown('<div class="section-hdr">📐 GARCH Model Statistics</div>',
-                    unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="section-hdr">{feather_icon("activity", 16)} GARCH Model Statistics</div>',
+            unsafe_allow_html=True,
+        )
         col_s1, col_s2 = st.columns(2)
         with col_s1:
             st.dataframe(pd.DataFrame({
@@ -1655,9 +1957,9 @@ Notice how high-risk periods bunch together. One big move often triggers more bi
                 ],
             }), use_container_width=True, hide_index=True)
         with col_s2:
-            st.markdown("""
+            st.markdown(f"""
             <div class="insight-box">
-                <div class="insight-title">📌 How to read α+β (persistence)</div>
+                <div class="insight-title">{feather_icon('activity', 16)} How to read α+β (persistence)</div>
                 <div class="insight-text">
                 Close to <strong>1.0</strong> = volatility shocks last a long time (typical in crypto).<br>
                 Close to <strong>0.5</strong> = shocks die out quickly.<br>
@@ -1665,7 +1967,7 @@ Notice how high-risk periods bunch together. One big move often triggers more bi
                 </div>
             </div>
             <div class="insight-box">
-                <div class="insight-title">📌 NLP → GARCH connection</div>
+                <div class="insight-title">{feather_icon('bar-chart-2', 16)} NLP → GARCH connection</div>
                 <div class="insight-text">
                 The Fear & Greed Index (built from NLP) is used as a <strong>variance regressor</strong>
                 in the GARCH model — high fear deviations directly increase
@@ -1676,8 +1978,10 @@ Notice how high-risk periods bunch together. One big move often triggers more bi
             """, unsafe_allow_html=True)
 
         # ── Top fearful / greedy posts ────────────────────────────────────
-        st.markdown('<div class="section-hdr">🏆 Most Extreme Posts</div>',
-                    unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="section-hdr">{feather_icon("alert-triangle", 16)} Most Extreme Posts</div>',
+            unsafe_allow_html=True,
+        )
         col_f, col_g = st.columns(2)
         with col_f:
             st.markdown("**Most Fearful Posts**")
