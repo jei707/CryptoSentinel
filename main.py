@@ -242,7 +242,9 @@ def fetch_reddit_posts(
     limit=100,
     sort="hot",
     max_posts=None,        # None = unlimited (fetch all available pages)
-    progress_callback=None # optional fn(fetched_so_far, sub) for UI updates
+    progress_callback=None, # optional fn(fetched_so_far, sub) for UI updates
+    date_from=None,        # date: only keep posts on or after this date
+    date_to=None,          # date: only keep posts on or before this date
 ):
     """
     Fetch posts from crypto subreddits using Reddit's public JSON endpoint.
@@ -316,9 +318,15 @@ def fetch_reddit_posts(
                     text     = f"{title}. {selftext}".strip(". ") if selftext else title
 
                     if text:
-                        lines.append(f"{date_str},{text}")
-                        sub_count  += 1
-                        page_added += 1
+                        post_date = datetime.utcfromtimestamp(p["created_utc"]).date()
+                        in_range = (
+                            (date_from is None or post_date >= date_from) and
+                            (date_to   is None or post_date <= date_to)
+                        )
+                        if in_range:
+                            lines.append(f"{date_str},{text}")
+                            sub_count  += 1
+                            page_added += 1
 
                     if max_posts is not None and sub_count >= max_posts:
                         break
@@ -1058,7 +1066,7 @@ def chart_returns_dist(returns, cond_vol, theme="dark"):
 # ═══════════════════════════════════════════════════════════════════════════
 
 with st.sidebar:
-    st.markdown("## ⚙️ Configuration")
+    st.markdown("## 🚀 Crypto Setup")
     st.markdown("---")
 
     st.markdown("### 🌓 Theme")
@@ -1088,25 +1096,45 @@ with st.sidebar:
     col1, col2 = st.columns(2)
     with col1:
         start_date = st.date_input("Start", value=date(2024, 1, 1),
-                                   min_value=date(2020, 1, 1))
+                                   min_value=date(2005, 1, 1))
     with col2:
-        end_date   = st.date_input("End",   value=date(2024, 3, 28),
-                                   min_value=date(2020, 1, 2))
+        end_date   = st.date_input("End", value=date.today(),
+                                   min_value=date(2005, 1, 2))
 
-    st.markdown("### 📐 GARCH Settings")
-    garch_p = st.slider("ARCH order (p)", 1, 3, 1,
-                        help="Number of lagged squared residuals")
-    garch_q = st.slider("GARCH order (q)", 1, 3, 1,
-                        help="Number of lagged variance terms")
-    forecast_days = st.slider("Forecast Horizon (days)", 3, 14, 7)
+    st.markdown("### 🎯 Choose Analysis Style")
 
-    st.markdown("### 📊 Risk Thresholds")
-    high_risk_vol = st.slider("High Risk Volatility (%)", 50, 150, 80,
-                               help="Annualized vol threshold for High Risk classification")
-    fear_threshold = st.slider("Fear Zone Threshold", 10, 45, 30,
-                                help="F&G score below this = fear zone")
-    greed_threshold = st.slider("Greed Zone Threshold", 55, 90, 70,
-                                 help="F&G score above this = greed zone")
+    mode = st.selectbox(
+        "Analysis Mode",
+        ["🟢 Beginner (Recommended)",
+         "🟡 Balanced",
+         "🔴 Early Warnings",
+         "⚙️ Advanced"],
+        help="Choose how sensitive the crypto warning system should be"
+    )
+
+    if mode == "🟢 Beginner (Recommended)":
+        garch_p, garch_q, forecast_days = 1, 1, 7
+        high_risk_vol, fear_threshold, greed_threshold = 80, 30, 70
+        st.success("Easy mode: Stable forecasts and simple explanations.")
+
+    elif mode == "🟡 Balanced":
+        garch_p, garch_q, forecast_days = 1, 1, 10
+        high_risk_vol, fear_threshold, greed_threshold = 70, 35, 65
+        st.info("Balanced mode: More responsive to market changes.")
+
+    elif mode == "🔴 Early Warnings":
+        garch_p, garch_q, forecast_days = 1, 1, 14
+        high_risk_vol, fear_threshold, greed_threshold = 60, 40, 60
+        st.warning("Sensitive mode: Gives earlier risk alerts.")
+
+    else:
+        st.markdown("### ⚙️ Expert Controls")
+        garch_p = st.slider("How much yesterday's panic matters", 1, 3, 1)
+        garch_q = st.slider("How long market stress lasts", 1, 3, 1)
+        forecast_days = st.slider("Days to predict future risk", 3, 14, 7)
+        high_risk_vol = st.slider("Warn me when risk exceeds (%)", 50, 150, 80)
+        fear_threshold = st.slider("When traders look scared", 10, 45, 30)
+        greed_threshold = st.slider("When hype gets excessive", 55, 90, 70)
 
     st.markdown("---")
     st.markdown("### 🔴 Live Reddit Data")
@@ -1152,6 +1180,8 @@ with st.sidebar:
                 sort=reddit_sort,
                 max_posts=reddit_max,
                 progress_callback=on_progress,
+                date_from=start_date,
+                date_to=end_date,
             )
 
         progress_bar.empty()
